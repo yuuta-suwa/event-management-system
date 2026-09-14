@@ -1,0 +1,5 @@
+import {NextResponse} from "next/server";
+import {exportCsv} from "@/features/exports/data";
+import {validatedSessionUser} from "@/server/authz";
+const kinds=["participants","payments","checkins","staff"] as const;
+export async function GET(request:Request,{params}:{params:Promise<{kind:string}>}){const user=await validatedSessionUser();if(!user)return NextResponse.json({error:"UNAUTHENTICATED"},{status:401});const {kind}=await params;if(!kinds.includes(kind as typeof kinds[number]))return NextResponse.json({error:"NOT_FOUND"},{status:404});const allowed=kind==="checkins"?["SUPER_ADMIN","EVENT_MANAGER","RECEPTION_STAFF"]:["SUPER_ADMIN","EVENT_MANAGER"];if(!allowed.includes(user.role))return NextResponse.json({error:"FORBIDDEN"},{status:403});const url=new URL(request.url);const value=url.searchParams.get("year")??"";const year=/^20\d{2}$/.test(value)?Number(value):new Date().getFullYear();const csv=await exportCsv(kind as typeof kinds[number],user,year);return new NextResponse(csv,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="event-${kind}-${year}.csv"`,"Cache-Control":"private, no-store"}})}

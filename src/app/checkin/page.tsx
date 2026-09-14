@@ -1,0 +1,8 @@
+import Link from "next/link";
+import {UserPlus} from "lucide-react";
+import {AppHeader} from "@/components/app-header";
+import {CameraScanner} from "@/features/checkins/camera-scanner";
+import {listEvents} from "@/features/events/data";
+import {issueTicketToken,qrTokenSecret} from "@/features/tickets/token";
+import {requireUser} from "@/server/authz";
+export default async function CheckinPage({searchParams}:{searchParams:Promise<{eventId?:string;notice?:string}>}){const user=await requireUser(["SUPER_ADMIN","EVENT_MANAGER","RECEPTION_STAFF"]);const[{eventId,notice},events]=await Promise.all([searchParams,listEvents(user)]);const selected=eventId??events[0]?.id;const secret=qrTokenSecret();const paid=process.env.ENABLE_LOCAL_DEMO_AUTH==="true"?issueTicketToken("demo-ticket-a001",1,secret):undefined;const unpaid=process.env.ENABLE_LOCAL_DEMO_AUTH==="true"?issueTicketToken("demo-ticket-unpaid",1,secret):undefined;return <><AppHeader active="events"/><main className="content-shell checkin-shell"><div className="page-heading"><div><p className="eyebrow">QR CHECK-IN</p><h1>当日受付</h1><p>読み取り結果を3秒以内に判断できる受付画面です。</p></div><Link className="primary-link" href={`/checkin/walk-in?eventId=${selected??""}`}><UserPlus/>当日参加を登録</Link></div>{notice&&<div className="success-banner">当日参加者を登録し、受付を完了しました。</div>}<form className="event-selector"><label>受付対象イベント<select name="eventId" defaultValue={selected}>{events.map(e=><option value={e.id} key={e.id}>{e.name}</option>)}</select></label><button>切り替え</button></form>{selected?<CameraScanner eventId={selected} demoPaidToken={paid} demoUnpaidToken={unpaid}/>:<p>受付可能なイベントがありません。</p>}</main></>}

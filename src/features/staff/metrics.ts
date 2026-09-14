@@ -1,0 +1,2 @@
+export type AllocationMetricsInput={allocated:number;assigned:number;paid:number;checkedIn:number};
+export function calculateAllocationKpis(a:AllocationMetricsInput){return {consumptionRate:a.allocated?Math.round(a.assigned/a.allocated*100):0,paymentRate:a.assigned?Math.round(a.paid/a.assigned*100):0,attendanceRate:a.paid?Math.round(a.checkedIn/a.paid*100):0,finalMobilizationRate:a.allocated?Math.round(a.checkedIn/a.allocated*100):0,remaining:a.allocated-a.assigned}}

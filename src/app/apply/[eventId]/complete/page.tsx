@@ -1,0 +1,4 @@
+import Link from "next/link";
+import {CheckCircle2,Mail,TicketCheck} from "lucide-react";
+import {issueTicketToken,qrTokenSecret} from "@/features/tickets/token";
+export default async function CompletePage({searchParams}:{searchParams:Promise<{demo?:string;duplicate?:string}>}){const q=await searchParams;const demoToken=q.demo?issueTicketToken("demo-ticket-a001",1,qrTokenSecret()):null;return <main className="complete-shell"><section><CheckCircle2/><p className="eyebrow">APPLICATION COMPLETE</p><h1>{q.duplicate?"すでにお申し込み済みです":"お申し込みを受け付けました"}</h1><p>ご登録のメールアドレスへ、申込内容と銀行振込のご案内をお送りします。</p><div><Mail/><span>入金確認後、QR付き電子チケットが有効になります。</span></div>{q.demo&&<small>これはローカルデモです。入力内容は保存されていません。</small>}{demoToken&&<Link className="demo-ticket-link" href={`/ticket/${demoToken}`}><TicketCheck/>入金後の電子チケットを確認</Link>}<Link href="/login">管理画面へ戻る</Link></section></main>}

@@ -1,0 +1,2 @@
+export type FunnelInput={capacity:number;allocated:number;assigned:number;paid:number;checkedIn:number};
+export function funnelMetrics(input:FunnelInput){return {ticketConsumptionRate:input.allocated?Math.round(input.assigned/input.allocated*100):0,paymentRate:input.assigned?Math.round(input.paid/input.assigned*100):0,attendanceRate:input.paid?Math.round(input.checkedIn/input.paid*100):0,finalMobilizationRate:input.allocated?Math.round(input.checkedIn/input.allocated*100):0,capacityRate:input.capacity?Math.round(input.checkedIn/input.capacity*100):0}}

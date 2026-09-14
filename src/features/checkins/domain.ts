@@ -1,0 +1,3 @@
+type UnpaidResolution="ONSITE_PAYMENT"|"REJECT"|"ADMIN_CONFIRMATION";
+export type GateDecision="INVALID"|"WRONG_EVENT"|"ALREADY_CHECKED_IN"|"UNPAID"|"REJECTED"|"NEEDS_ADMIN"|"PROCEED";
+export function decideCheckinGate(input:{valid:boolean;sameEvent:boolean;alreadyCheckedIn:boolean;paid:boolean;resolution?:UnpaidResolution}):GateDecision{if(!input.valid)return "INVALID";if(!input.sameEvent)return "WRONG_EVENT";if(input.alreadyCheckedIn)return "ALREADY_CHECKED_IN";if(input.paid)return "PROCEED";if(!input.resolution)return "UNPAID";if(input.resolution==="REJECT")return "REJECTED";if(input.resolution==="ADMIN_CONFIRMATION")return "NEEDS_ADMIN";return "PROCEED"}

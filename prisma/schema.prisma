@@ -1,0 +1,398 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  EVENT_MANAGER
+  RECEPTION_STAFF
+  PARTICIPANT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INVITED
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum TicketStatus {
+  PROVISIONAL
+  ACTIVE
+  USED
+  CANCELLED
+  TRANSFERRED
+  EXPIRED
+}
+
+enum AttendanceStatus {
+  APPLIED
+  PAID
+  EXPECTED
+  CHECKED_IN
+  ABSENT
+  CANCELLED
+  WALK_IN
+}
+
+enum NotificationStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum NotificationType {
+  APPLICATION
+  PAYMENT_REMINDER
+  PAYMENT_CONFIRMED
+  TICKET
+  EVENT_EVE
+  EVENT_THREE_HOURS
+  CUSTOM
+}
+
+enum CheckinType {
+  QR
+  WALK_IN
+  MANUAL
+}
+
+model User {
+  id                String           @id @default(cuid())
+  name              String
+  email             String           @unique
+  passwordHash      String?
+  role              UserRole
+  status            UserStatus       @default(ACTIVE)
+  emailVerified     DateTime?
+  image             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  staffProfile      StaffProfile?
+  participant       Participant?
+  sessions          Session[]
+  accounts          Account[]
+  managedEvents     Event[]          @relation("EventManager")
+  eventAssignments  EventStaff[]
+  confirmedPayments Payment[]        @relation("PaymentConfirmer")
+  performedCheckins Checkin[]        @relation("CheckinStaff")
+  transfers         TicketTransfer[] @relation("TransferOperator")
+  auditLogs         AuditLog[]       @relation("AuditActor")
+}
+
+model StaffProfile {
+  id            String             @id @default(cuid())
+  userId        String             @unique
+  displayName   String
+  phone         String?
+  active        Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  allocations   TicketAllocation[]
+  introductions Ticket[]           @relation("Introducer")
+}
+
+model Participant {
+  id                String              @id @default(cuid())
+  userId            String?             @unique
+  name              String
+  nameKana          String
+  phone             String
+  email             String
+  gender            String?
+  age               Int?
+  occupation        String?
+  lineUserId        String?             @unique
+  lineConnected     Boolean             @default(false)
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  registrations     EventRegistration[]
+  tickets           Ticket[]
+  checkins          Checkin[]
+  notifications     NotificationLog[]
+  incomingTransfers TicketTransfer[]    @relation("NewParticipant")
+  outgoingTransfers TicketTransfer[]    @relation("OldParticipant")
+
+  @@index([email])
+  @@index([phone])
+  @@index([name])
+}
+
+model EventCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events    Event[]
+}
+
+model Event {
+  id                  String              @id @default(cuid())
+  categoryId          String
+  name                String
+  description         String
+  imageUrl            String?
+  eventDate           DateTime
+  startTime           DateTime
+  receptionStartTime  DateTime
+  endTime             DateTime
+  venueName           String
+  address             String
+  capacity            Int
+  price               Int
+  organizer           String
+  managerId           String
+  applicationDeadline DateTime
+  cancelDeadline      DateTime?
+  cancellationPolicy  String
+  bankInformation     String
+  status              EventStatus         @default(DRAFT)
+  lineNotifications   Boolean             @default(false)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  category            EventCategory       @relation(fields: [categoryId], references: [id])
+  manager             User                @relation("EventManager", fields: [managerId], references: [id])
+  staff               EventStaff[]
+  allocations         TicketAllocation[]
+  registrations       EventRegistration[]
+  tickets             Ticket[]
+  checkins            Checkin[]
+  notificationJobs    NotificationJob[]
+  notificationLogs    NotificationLog[]
+
+  @@index([eventDate, status])
+  @@index([managerId])
+}
+
+model EventStaff {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model TicketAllocation {
+  id                String       @id @default(cuid())
+  eventId           String
+  staffId           String
+  allocatedQuantity Int
+  assignedQuantity  Int          @default(0)
+  referralCode      String       @unique
+  referralTokenHash String       @unique
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  event             Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  staff             StaffProfile @relation(fields: [staffId], references: [id])
+  tickets           Ticket[]
+
+  @@unique([eventId, staffId])
+  @@index([eventId])
+}
+
+model EventRegistration {
+  id                String           @id @default(cuid())
+  eventId           String
+  participantId     String
+  ticketId          String?          @unique
+  attendanceStatus  AttendanceStatus @default(APPLIED)
+  applicationSource String
+  appliedAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  event             Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participant       Participant      @relation(fields: [participantId], references: [id])
+  ticket            Ticket?          @relation(fields: [ticketId], references: [id])
+
+  @@unique([eventId, participantId])
+  @@index([eventId, attendanceStatus])
+}
+
+model Ticket {
+  id                String             @id @default(cuid())
+  eventId           String
+  allocationId      String?
+  participantId     String
+  introducerStaffId String?
+  ticketNumber      String             @unique
+  qrTokenHash       String             @unique
+  qrTokenVersion    Int                @default(1)
+  status            TicketStatus       @default(PROVISIONAL)
+  paymentStatus     PaymentStatus      @default(UNPAID)
+  issuedAt          DateTime?
+  cancelledAt       DateTime?
+  transferredAt     DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  allocation        TicketAllocation?  @relation(fields: [allocationId], references: [id])
+  participant       Participant        @relation(fields: [participantId], references: [id])
+  introducer        StaffProfile?      @relation("Introducer", fields: [introducerStaffId], references: [id])
+  registration      EventRegistration?
+  payments          Payment[]
+  checkin           Checkin?
+  transfers         TicketTransfer[]
+
+  @@index([eventId, paymentStatus, status])
+  @@index([participantId])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  ticketId      String
+  amount        Int
+  paymentMethod String        @default("BANK_TRANSFER")
+  status        PaymentStatus
+  payerName     String?
+  paidAt        DateTime?
+  confirmedBy   String?
+  confirmedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  ticket        Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  confirmer     User?         @relation("PaymentConfirmer", fields: [confirmedBy], references: [id])
+
+  @@index([ticketId, status])
+}
+
+model Checkin {
+  id            String      @id @default(cuid())
+  eventId       String
+  ticketId      String      @unique
+  participantId String
+  checkedInAt   DateTime    @default(now())
+  checkedInBy   String
+  checkinType   CheckinType
+  createdAt     DateTime    @default(now())
+  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticket        Ticket      @relation(fields: [ticketId], references: [id])
+  participant   Participant @relation(fields: [participantId], references: [id])
+  operator      User        @relation("CheckinStaff", fields: [checkedInBy], references: [id])
+
+  @@index([eventId, checkedInAt])
+}
+
+model TicketTransfer {
+  id               String      @id @default(cuid())
+  ticketId         String
+  oldParticipantId String
+  newParticipantId String
+  transferredBy    String
+  reason           String
+  oldQrTokenHash   String
+  createdAt        DateTime    @default(now())
+  ticket           Ticket      @relation(fields: [ticketId], references: [id])
+  oldParticipant   Participant @relation("OldParticipant", fields: [oldParticipantId], references: [id])
+  newParticipant   Participant @relation("NewParticipant", fields: [newParticipantId], references: [id])
+  operator         User        @relation("TransferOperator", fields: [transferredBy], references: [id])
+}
+
+model NotificationJob {
+  id          String             @id @default(cuid())
+  eventId     String
+  type        NotificationType
+  scheduledAt DateTime
+  status      NotificationStatus @default(PENDING)
+  attempts    Int                @default(0)
+  payload     Json
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  event       Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledAt])
+}
+
+model NotificationLog {
+  id            String             @id @default(cuid())
+  participantId String
+  eventId       String
+  type          NotificationType
+  message       String
+  status        NotificationStatus
+  sentAt        DateTime?
+  errorMessage  String?
+  createdAt     DateTime           @default(now())
+  participant   Participant        @relation(fields: [participantId], references: [id])
+  event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

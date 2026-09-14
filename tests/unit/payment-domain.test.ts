@@ -1,0 +1,3 @@
+import {describe,expect,it} from "vitest";
+import {canTransitionPayment} from "@/features/payments/domain";
+describe("payment status transitions",()=>{it("未入金から入金待ち・入金済・キャンセルへ進める",()=>{expect(canTransitionPayment("UNPAID","PENDING")).toBe(true);expect(canTransitionPayment("UNPAID","PAID")).toBe(true);expect(canTransitionPayment("UNPAID","CANCELLED")).toBe(true)});it("入金済から未入金へ戻せない",()=>expect(canTransitionPayment("PAID","UNPAID")).toBe(false));it("入金済から返金済へ変更できる",()=>expect(canTransitionPayment("PAID","REFUNDED")).toBe(true));it("返金済は終端状態",()=>expect(canTransitionPayment("REFUNDED","PAID")).toBe(false))});
