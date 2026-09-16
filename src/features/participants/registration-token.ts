@@ -1,0 +1,4 @@
+import {createHmac,timingSafeEqual} from "node:crypto";
+const prefix="reg1";
+export function issueRegistrationToken(registrationId:string,secret:string){if(secret.length<32)throw new Error("QR_TOKEN_SECRET_TOO_SHORT");const payload=Buffer.from(registrationId,"utf8").toString("base64url");const signature=createHmac("sha256",secret).update(`${prefix}.${payload}`).digest("base64url");return `${prefix}.${payload}.${signature}`}
+export function verifyRegistrationToken(token:string,secret:string):string|null{if(secret.length<32)return null;const parts=token.split(".");if(parts.length!==3||parts[0]!==prefix)return null;const expected=createHmac("sha256",secret).update(`${prefix}.${parts[1]}`).digest();let supplied:Buffer;try{supplied=Buffer.from(parts[2],"base64url")}catch{return null}if(supplied.length!==expected.length||!timingSafeEqual(supplied,expected))return null;try{return Buffer.from(parts[1],"base64url").toString("utf8")}catch{return null}}
