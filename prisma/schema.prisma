@@ -347,6 +347,15 @@ model NotificationLog {
   @@index([eventId, createdAt])
 }
 
+model LineGroup {
+  id       String    @id @default(cuid())
+  groupId  String    @unique
+  name     String?
+  active   Boolean   @default(true)
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   actorId    String?
