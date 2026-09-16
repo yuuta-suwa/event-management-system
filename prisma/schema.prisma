@@ -125,6 +125,8 @@ model Participant {
   gender            String?
   age               Int?
   occupation        String?
+  referrerName      String?
+  snsContact        String?
   lineUserId        String?             @unique
   lineConnected     Boolean             @default(false)
   lineLinkCode      String              @unique
@@ -174,6 +176,7 @@ model Event {
   cancelDeadline      DateTime?
   cancellationPolicy  String
   bankInformation     String
+  promoUrl            String?
   status              EventStatus         @default(DRAFT)
   lineNotifications   Boolean             @default(false)
   createdAt           DateTime            @default(now())

@@ -14,6 +14,7 @@ function parseForm(formData:FormData){
     eventDate:formData.get("eventDate"), startTime:formData.get("startTime"), receptionStartTime:formData.get("receptionStartTime"), endTime:formData.get("endTime"),
     venueName:formData.get("venueName"), address:formData.get("address"), capacity:formData.get("capacity"), price:formData.get("price"), organizer:formData.get("organizer"),
     applicationDeadline:formData.get("applicationDeadline"), cancelDeadline:formData.get("cancelDeadline")||undefined, cancellationPolicy:formData.get("cancellationPolicy"), bankInformation:formData.get("bankInformation"),
+    promoUrl:formData.get("promoUrl")||undefined,
     status:formData.get("status"), lineNotifications:formData.get("lineNotifications")==="on",
   });
 }
@@ -22,7 +23,7 @@ function dbInput(input:ReturnType<typeof eventFormSchema.parse>,managerId:string
   categoryId:input.categoryId,name:input.name,description:input.description,eventDate:new Date(`${input.eventDate}T00:00:00+09:00`),
   startTime:new Date(input.startTime),receptionStartTime:new Date(input.receptionStartTime),endTime:new Date(input.endTime),venueName:input.venueName,address:input.address,
   capacity:input.capacity,price:input.price,organizer:input.organizer,managerId,applicationDeadline:new Date(input.applicationDeadline),cancelDeadline:input.cancelDeadline?new Date(input.cancelDeadline):null,
-  cancellationPolicy:input.cancellationPolicy,bankInformation:input.bankInformation,status:input.status,lineNotifications:input.lineNotifications,
+  cancellationPolicy:input.cancellationPolicy,bankInformation:input.bankInformation,promoUrl:input.promoUrl||null,status:input.status,lineNotifications:input.lineNotifications,
 };}
 
 export async function createEvent(_:EventActionState,formData:FormData):Promise<EventActionState>{

@@ -15,7 +15,7 @@ export async function updateMyDetails(_:UpdateMyDetailsState,formData:FormData):
   if(!registration)return {message:"参加予定が見つかりませんでした。"};
   if(registration.ticket?.checkin)return {message:"受付済みのため、情報は変更できません。"};
   const input=parsed.data;
-  const data={name:input.name,nameKana:input.nameKana,phone:input.phone,email:input.email.toLowerCase(),gender:input.gender||null,age:input.age===""||input.age===undefined?null:Number(input.age),occupation:input.occupation||null,notes:input.notes||null};
+  const data={name:input.name,nameKana:input.nameKana,phone:input.phone,email:input.email.toLowerCase(),gender:input.gender||null,age:input.age===""||input.age===undefined?null:Number(input.age),occupation:input.occupation||null,referrerName:input.referrerName||null,snsContact:input.snsContact||null,notes:input.notes||null};
   await db.$transaction(async tx=>{
     await tx.participant.update({where:{id:registration.participantId},data});
     await tx.auditLog.create({data:{action:"PARTICIPANT_SELF_UPDATED",entityType:"EventRegistration",entityId:registration.id,after:data}});

@@ -20,6 +20,7 @@ export const eventFormSchema = z.object({
   cancelDeadline: z.string().optional(),
   cancellationPolicy: z.string().trim().min(5).max(2000),
   bankInformation: z.string().trim().min(5).max(2000),
+  promoUrl: z.union([z.literal(""), z.string().trim().url("有効なURLを入力してください")]).optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "CLOSED"]),
   lineNotifications: z.coerce.boolean().default(false),
 }).superRefine((value, ctx) => {

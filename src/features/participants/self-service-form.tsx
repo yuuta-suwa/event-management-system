@@ -1,7 +1,7 @@
 "use client";
 import {useActionState} from "react";
 import {updateMyDetails} from "./self-service-actions";
-export function MyDetailsForm({token,participant,disabled}:{token:string;participant:{name:string;nameKana:string;phone:string;email:string;gender:string|null;age:number|null;occupation:string|null;notes:string|null};disabled:boolean}){
+export function MyDetailsForm({token,participant,disabled}:{token:string;participant:{name:string;nameKana:string;phone:string;email:string;gender:string|null;age:number|null;occupation:string|null;referrerName:string|null;snsContact:string|null;notes:string|null};disabled:boolean}){
   const [state,action,pending]=useActionState(updateMyDetails,{});
   const err=(n:string)=>state.errors?.[n]?.[0];
   return <form action={action} className="public-form">
@@ -15,6 +15,8 @@ export function MyDetailsForm({token,participant,disabled}:{token:string;partici
       <label>性別<select name="gender" defaultValue={participant.gender??""} disabled={disabled}><option value="">回答しない</option><option value="MALE">男性</option><option value="FEMALE">女性</option><option value="OTHER">その他</option></select></label>
       <label>年齢<input name="age" type="number" min="0" max="120" defaultValue={participant.age??""} disabled={disabled}/></label>
       <label className="span-2">職種<input name="occupation" defaultValue={participant.occupation??""} disabled={disabled}/></label>
+      <label>紹介者名<input name="referrerName" defaultValue={participant.referrerName??""} disabled={disabled}/></label>
+      <label>その他の連絡先<input name="snsContact" defaultValue={participant.snsContact??""} disabled={disabled}/></label>
       <label className="span-2">備考<textarea name="notes" rows={3} defaultValue={participant.notes??""} disabled={disabled}/></label>
     </div>
     {!disabled&&<button disabled={pending}>{pending?"更新中…":"内容を更新する"}</button>}
