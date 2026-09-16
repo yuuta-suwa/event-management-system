@@ -1,6 +1,6 @@
 import {notFound} from "next/navigation";
 import Link from "next/link";
-import {CalendarDays,MapPin,ShieldCheck,TicketCheck,Wallet} from "lucide-react";
+import {CalendarDays,CheckCircle2,MapPin,MessageCircle,ShieldCheck,TicketCheck,Wallet} from "lucide-react";
 import {getMyRegistration} from "@/features/participants/my-registration";
 import {issueTicketToken,qrTokenSecret} from "@/features/tickets/token";
 import {MyDetailsForm,CancelRegistrationForm} from "@/features/participants/self-service-form";
@@ -27,6 +27,18 @@ export default async function MyRegistrationPage({params,searchParams}:{params:P
         <div className="price-panel"><span>参加費</span><strong>¥{data.event.price.toLocaleString("ja-JP")}</strong></div>
         {data.ticket?.paymentStatus!=="PAID"&&data.attendanceStatus!=="CANCELLED"&&<div className="introducer"><Wallet size={16}/> 振込先：{data.event.bankInformation}</div>}
         {ticketReady&&<Link className="demo-ticket-link" href={`/ticket/${issueTicketToken(data.ticket!.id,data.ticket!.version,qrTokenSecret())}`}><TicketCheck/>電子チケット（QR）を見る</Link>}
+        <div className="line-link-panel">
+          {data.participant.lineConnected?
+            <p className="line-link-done"><CheckCircle2 size={16}/> LINE連携済み。入金確認やチケットのご案内はLINEに届きます。</p>
+          :<>
+            <p className="line-link-title"><MessageCircle size={16}/> LINE連携（未連携）</p>
+            <ol>
+              <li>LINEで「イベント管理通知」を友だち追加</li>
+              <li>トークでこの連携コードを送信：<code className="line-link-code">{data.participant.lineLinkCode}</code></li>
+            </ol>
+            {process.env.NEXT_PUBLIC_LINE_BASIC_ID&&<a className="demo-ticket-link" href={`https://line.me/R/ti/p/%40${process.env.NEXT_PUBLIC_LINE_BASIC_ID}`} target="_blank" rel="noreferrer"><MessageCircle size={16}/>友だち追加する</a>}
+          </>}
+        </div>
       </aside>
       <section className="application-form-card">
         <div><p className="eyebrow">YOUR INFORMATION</p><h2>登録内容</h2><p>{locked?"現在の状態では変更できません。":"内容の修正やキャンセルができます。"}</p></div>

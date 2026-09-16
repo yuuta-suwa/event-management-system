@@ -127,6 +127,7 @@ model Participant {
   occupation        String?
   lineUserId        String?             @unique
   lineConnected     Boolean             @default(false)
+  lineLinkCode      String              @unique
   notes             String?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
