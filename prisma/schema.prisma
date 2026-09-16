@@ -177,6 +177,7 @@ model Event {
   cancellationPolicy  String
   bankInformation     String
   promoUrl            String?
+  ticketBackgroundUrl String?
   status              EventStatus         @default(DRAFT)
   lineNotifications   Boolean             @default(false)
   createdAt           DateTime            @default(now())

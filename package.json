@@ -19,6 +19,7 @@
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
     "@prisma/client": "^6.19.3",
+    "@vercel/blob": "^2.8.0",
     "@zxing/browser": "^0.2.1",
     "bcryptjs": "^3.0.2",
     "lucide-react": "^1.34.0",

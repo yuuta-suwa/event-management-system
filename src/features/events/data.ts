@@ -10,7 +10,7 @@ export type EventSummary = {
 export type EventDetail = EventSummary & {
   categoryId:string; description:string; receptionStartTime:Date; organizer:string;
   applicationDeadline:Date; cancelDeadline:Date|null; cancellationPolicy:string;
-  bankInformation:string; promoUrl:string|null; lineNotifications:boolean; managerId:string;
+  bankInformation:string; promoUrl:string|null; ticketBackgroundUrl:string|null; lineNotifications:boolean; managerId:string;
 };
 
 const demoEvent: EventDetail = {
@@ -22,7 +22,7 @@ const demoEvent: EventDetail = {
   status:"PUBLISHED", registrationCount:24, paidCount:19, organizer:"EVENT MANAGEMENT事務局",
   applicationDeadline:new Date("2026-09-10T23:59:00+09:00"), cancelDeadline:new Date("2026-09-05T23:59:00+09:00"),
   cancellationPolicy:"チケット取得後は返金不可。主催者都合による中止の場合のみ返金します。",
-  bankInformation:"イベント専用口座（申込完了後に参加者へ案内）", promoUrl:null, lineNotifications:true, managerId:"local-demo-super-admin",
+  bankInformation:"イベント専用口座（申込完了後に参加者へ案内）", promoUrl:null, ticketBackgroundUrl:null, lineNotifications:true, managerId:"local-demo-super-admin",
 };
 
 export async function listCategories() {
