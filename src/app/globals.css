@@ -9,7 +9,7 @@ body{font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic",system-ui,sans-serif
 .ticket-shell{min-height:100dvh;display:grid;place-items:center;padding:30px 16px;background:radial-gradient(circle at 30% 0%,#1c2029,#05060a 65%)}
 .ticket-wrap{position:relative;width:min(420px,100%);overflow:hidden;background:radial-gradient(circle at 50% 0%,#242017,#0a0906 70%);border:1px solid #d4af7a4d;border-radius:26px;box-shadow:0 30px 90px #00000080,0 0 0 1px #ffffff08 inset;color:#f3ead9;isolation:isolate;padding-bottom:22px}
 .ticket-wrap.has-bg{background-size:cover;background-position:center}
-.ticket-wrap.has-bg::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#0a0906cc 0%,#0a0906e0 45%,#0a0906f7 100%);z-index:0}
+.ticket-wrap.has-bg::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#0a090633 0%,#0a090666 45%,#0a0906b3 100%);z-index:0}
 .ticket-wrap>*{position:relative;z-index:1}
 .ticket-brand{display:flex;justify-content:space-between;align-items:center;padding:20px 24px 0;font-size:9px;font-weight:800;letter-spacing:.22em;color:#d4af7a;text-transform:uppercase}
 .ticket-paid{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:20px;background:#d4af7a;color:#12141a;font-size:9px;font-weight:900;letter-spacing:.05em}
