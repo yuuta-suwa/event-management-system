@@ -69,44 +69,6 @@ VercelへNext.jsアプリを接続し、マネージドPostgreSQLを用意しま
 
 詳細な設計判断は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) を参照してください。
 
-## イベント告知LP（LINKS BAR EVENT LP）
+## イベント告知LP
 
-Instagram / LINEから開く、スマートフォン特化のイベント告知ページです。`/event` で公開されます。イベント管理システム本体とは別の役割（申込・チケット発行はしない）で、CTAから既存の申込ページ（`/apply/[eventId]`）へ遷移します。
-
-イベントごとに新しいページは作らず、この1ページを毎回更新して使い回します。
-
-### 次回イベント更新方法
-
-1. [src/data/eventConfig.ts](src/data/eventConfig.ts) の値を書き換える（日付・時間・会場・住所・料金・定員・申込URL・コピーなど）
-2. 実写真がある場合は `public/images/event/` に配置し、`eventConfig.heroImage` にパスを設定する（未設定の場合は現状のCSSのみの演出のまま使用される）
-3. OGP画像は [src/app/event/opengraph-image.tsx](src/app/event/opengraph-image.tsx) が `eventConfig` の値から自動生成するため、通常は変更不要（英字のみ表示。日本語を含めたい場合はフォント埋め込みが必要になるため要相談）
-4. コピー文言（見出し・本文）を必要に応じて変更する
-5. `pnpm db:generate && pnpm build` で本番ビルドを確認
-6. Vercelへdeploy
-
-### EVENT UPDATE CHECKLIST
-
-- [ ] イベント名
-- [ ] 日付
-- [ ] 曜日
-- [ ] 開催時間
-- [ ] 会場
-- [ ] 階数
-- [ ] 住所
-- [ ] 料金
-- [ ] 料金内容
-- [ ] 定員
-- [ ] 申込URL（`eventConfig.applicationUrl`）
-- [ ] MAP URL（`eventConfig.mapUrl`、未設定なら「MAPを見る」は非表示）
-- [ ] Hero画像（任意）
-- [ ] メインコピー
-
-### データ整合性について
-
-以下3箇所のイベント情報は本来一致している必要があります。
-
-1. LINKS EVENT LP（`/event`、本セクションの設定ファイル）
-2. イベント管理システムの申込画面（`/apply/[eventId]`、管理画面でイベントを編集して設定）
-3. 申込後の電子チケット
-
-LPリポジトリ（本リポジトリ）から申込画面・電子チケットのデータを直接は変更していません。イベント作成・編集画面（`/events/[id]/edit`）側で日時・会場・住所・料金・定員を今回の内容と一致させてください。また、同画面の「告知ページURL（任意）」に本LPのURL（例: `https://event-management-system-gmpdcasp.vercel.app/event`）を設定すると、申込画面から本LPへ戻れるようになります。
+イベント告知LPは、このリポジトリの外（ChatGPTのサイト作成機能）で管理しています。イベントごとにそちら側で内容を更新してください。イベント作成・編集画面（`/events/[id]/edit`）の「告知ページURL（任意）」に、そのLPのURLを設定すると、申込画面からLPへのリンクが表示されます。
