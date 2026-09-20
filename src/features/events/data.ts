@@ -34,13 +34,13 @@ export async function listEvents(user:{id:string;role:UserRole}):Promise<EventSu
   if (isLocalDemo()) return [demoEvent];
   const rows=await db.event.findMany({
     where:user.role==="SUPER_ADMIN"?{}:{OR:[{managerId:user.id},{staff:{some:{userId:user.id}}}]},
-    orderBy:[{eventDate:"asc"},{startTime:"asc"}], include:{category:true,_count:{select:{registrations:true}},tickets:{select:{paymentStatus:true}}},
+    orderBy:[{eventDate:"asc"},{startTime:"asc"}], include:{category:true,tickets:{select:{paymentStatus:true,status:true}}},
   });
-  return rows.map(e=>({...e,categoryName:e.category.name,registrationCount:e._count.registrations,paidCount:e.tickets.filter(t=>t.paymentStatus==="PAID").length}));
+  return rows.map(e=>({...e,categoryName:e.category.name,registrationCount:e.tickets.filter(t=>t.status!=="CANCELLED"&&t.status!=="EXPIRED").length,paidCount:e.tickets.filter(t=>t.paymentStatus==="PAID").length}));
 }
 
 export async function getEvent(id:string,user:{id:string;role:UserRole}):Promise<EventDetail|null> {
   if (isLocalDemo()) return id===demoEvent.id?demoEvent:null;
-  const e=await db.event.findFirst({where:{id,...(user.role==="SUPER_ADMIN"?{}:{OR:[{managerId:user.id},{staff:{some:{userId:user.id}}}]})},include:{category:true,_count:{select:{registrations:true}},tickets:{select:{paymentStatus:true}}}});
-  return e?{...e,categoryName:e.category.name,registrationCount:e._count.registrations,paidCount:e.tickets.filter(t=>t.paymentStatus==="PAID").length}:null;
+  const e=await db.event.findFirst({where:{id,...(user.role==="SUPER_ADMIN"?{}:{OR:[{managerId:user.id},{staff:{some:{userId:user.id}}}]})},include:{category:true,tickets:{select:{paymentStatus:true,status:true}}}});
+  return e?{...e,categoryName:e.category.name,registrationCount:e.tickets.filter(t=>t.status!=="CANCELLED"&&t.status!=="EXPIRED").length,paidCount:e.tickets.filter(t=>t.paymentStatus==="PAID").length}:null;
 }

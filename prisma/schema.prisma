@@ -136,6 +136,7 @@ model Participant {
   user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
   registrations     EventRegistration[]
   tickets           Ticket[]
+  ticketOrders      TicketOrder[]
   checkins          Checkin[]
   notifications     NotificationLog[]
   incomingTransfers TicketTransfer[]    @relation("NewParticipant")
@@ -186,6 +187,7 @@ model Event {
   manager             User                @relation("EventManager", fields: [managerId], references: [id])
   staff               EventStaff[]
   allocations         TicketAllocation[]
+  ticketOrders        TicketOrder[]
   registrations       EventRegistration[]
   tickets             Ticket[]
   checkins            Checkin[]
@@ -220,9 +222,27 @@ model TicketAllocation {
   event             Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   staff             StaffProfile @relation(fields: [staffId], references: [id])
   tickets           Ticket[]
+  orders            TicketOrder[]
 
   @@unique([eventId, staffId])
   @@index([eventId])
+}
+
+model TicketOrder {
+  id                 String            @id @default(cuid())
+  eventId            String
+  buyerParticipantId String
+  allocationId       String?
+  quantity           Int
+  claimedCount       Int               @default(1)
+  createdAt          DateTime          @default(now())
+  event              Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  buyer              Participant       @relation(fields: [buyerParticipantId], references: [id])
+  allocation         TicketAllocation? @relation(fields: [allocationId], references: [id])
+  tickets            Ticket[]
+
+  @@index([eventId])
+  @@index([buyerParticipantId])
 }
 
 model EventRegistration {
@@ -246,11 +266,13 @@ model Ticket {
   id                String             @id @default(cuid())
   eventId           String
   allocationId      String?
+  orderId           String?
   participantId     String
   introducerStaffId String?
   ticketNumber      String             @unique
   qrTokenHash       String             @unique
   qrTokenVersion    Int                @default(1)
+  claimed           Boolean            @default(true)
   status            TicketStatus       @default(PROVISIONAL)
   paymentStatus     PaymentStatus      @default(UNPAID)
   issuedAt          DateTime?
@@ -260,6 +282,7 @@ model Ticket {
   updatedAt         DateTime           @updatedAt
   event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   allocation        TicketAllocation?  @relation(fields: [allocationId], references: [id])
+  order             TicketOrder?       @relation(fields: [orderId], references: [id])
   participant       Participant        @relation(fields: [participantId], references: [id])
   introducer        StaffProfile?      @relation("Introducer", fields: [introducerStaffId], references: [id])
   registration      EventRegistration?
@@ -269,6 +292,7 @@ model Ticket {
 
   @@index([eventId, paymentStatus, status])
   @@index([participantId])
+  @@index([orderId])
 }
 
 model Payment {
