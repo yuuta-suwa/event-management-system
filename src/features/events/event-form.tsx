@@ -1,13 +1,34 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { formatJstDate, formatJstDateTimeLocal } from "@/lib/jst";
 import { NotificationSettingsFields } from "./notification-settings-fields";
+import { applyDraftToForm, clearEventDraft, readEventDraft, serializeForm, writeEventDraft } from "./draft-storage";
 import type { EventActionState } from "./actions";
 import type { EventDetail } from "./data";
 
 type Props={action:(state:EventActionState,data:FormData)=>Promise<EventActionState>;categories:{id:string;name:string}[];event?:EventDetail};
 const local=formatJstDateTimeLocal;
-export function EventForm({action,categories,event}:Props){const[state,formAction,pending]=useActionState(action,{});const err=(name:string)=>state.errors?.[name]?.[0];return <form action={formAction} className="event-form">
+export function EventForm({action,categories,event}:Props){
+  const[state,formAction,pending]=useActionState(action,{});
+  const err=(name:string)=>state.errors?.[name]?.[0];
+  const isNew=!event;
+  const formRef=useRef<HTMLFormElement>(null);
+  const [draftRestored,setDraftRestored]=useState(false);
+  useEffect(()=>{
+    if(!isNew)return;
+    const form=formRef.current;
+    if(!form)return;
+    const restore=()=>{const draft=readEventDraft();if(draft){applyDraftToForm(form,draft);setDraftRestored(true)}};
+    restore();
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    const save=()=>{clearTimeout(timer);timer=setTimeout(()=>writeEventDraft(serializeForm(form)),400)};
+    form.addEventListener("input",save);
+    form.addEventListener("change",save);
+    return ()=>{clearTimeout(timer);form.removeEventListener("input",save);form.removeEventListener("change",save);clearEventDraft()};
+  },[isNew]);
+  const discardDraft=()=>{clearEventDraft();setDraftRestored(false);formRef.current?.reset();window.location.reload()};
+  return <form ref={formRef} action={formAction} className="event-form">
+  {isNew&&draftRestored&&<div className="success-banner">前回の入力内容を復元しました。<button type="button" onClick={discardDraft}>破棄してやり直す</button></div>}
   {state.message&&<div className="form-banner" role="alert">{state.message}</div>}
   <section className="form-section"><div><span>01</span><h2>基本情報</h2></div><div className="form-grid">
     <label className="span-2">イベント名<input name="name" defaultValue={event?.name} required/>{err("name")&&<small>{err("name")}</small>}</label>
@@ -24,7 +45,7 @@ export function EventForm({action,categories,event}:Props){const[state,formActio
     <label className="span-2">キャンセル規定<textarea name="cancellationPolicy" rows={3} defaultValue={event?.cancellationPolicy??"チケット取得後は返金不可。主催者都合による中止の場合のみ返金します。"} required/></label><label className="span-2">銀行振込情報<textarea name="bankInformation" rows={3} defaultValue={event?.bankInformation} required/></label><label className="span-2">告知ページURL（任意）<input type="url" name="promoUrl" placeholder="https://..." defaultValue={event?.promoUrl??""}/>{err("promoUrl")&&<small>{err("promoUrl")}</small>}</label><label className="checkbox-row span-2"><input type="checkbox" name="lineNotifications" defaultChecked={event?.lineNotifications}/><span>LINE通知を有効にする</span></label>
   </div></section>
   <section className="form-section"><div><span>04</span><h2>LINE通知設定</h2></div>
-    <NotificationSettingsFields defaults={{
+    <NotificationSettingsFields restoreDraft={isNew} defaults={{
       eveNotificationEnabled:event?.eveNotificationEnabled??true,
       eveNotificationTime:event?.eveNotificationTime??"18:00",
       dayOfNotificationEnabled:event?.dayOfNotificationEnabled??false,

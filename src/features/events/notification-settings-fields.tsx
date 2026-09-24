@@ -1,8 +1,9 @@
 "use client";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {notificationRules} from "@/features/notifications/schedule";
-type Props={defaults:{eveNotificationEnabled:boolean;eveNotificationTime:string;dayOfNotificationEnabled:boolean;dayOfNotificationTime:string;beforeStartNotificationEnabled:boolean;beforeStartNotificationMinutes:number;unpaidReminderEnabled:boolean}};
-export function NotificationSettingsFields({defaults}:Props){
+import {readEventDraft} from "./draft-storage";
+type Props={defaults:{eveNotificationEnabled:boolean;eveNotificationTime:string;dayOfNotificationEnabled:boolean;dayOfNotificationTime:string;beforeStartNotificationEnabled:boolean;beforeStartNotificationMinutes:number;unpaidReminderEnabled:boolean};restoreDraft?:boolean};
+export function NotificationSettingsFields({defaults,restoreDraft}:Props){
   const containerRef=useRef<HTMLDivElement>(null);
   const [eveOn,setEveOn]=useState(defaults.eveNotificationEnabled);
   const [eveTime,setEveTime]=useState(defaults.eveNotificationTime);
@@ -11,6 +12,21 @@ export function NotificationSettingsFields({defaults}:Props){
   const [beforeOn,setBeforeOn]=useState(defaults.beforeStartNotificationEnabled);
   const [beforeMin,setBeforeMin]=useState(defaults.beforeStartNotificationMinutes);
   const [dates,setDates]=useState({eventDate:"",startTime:""});
+  useEffect(()=>{
+    const restore=()=>{
+      if(!restoreDraft)return;
+      const draft=readEventDraft();
+      if(!draft)return;
+      if(typeof draft.eveNotificationEnabled==="boolean")setEveOn(draft.eveNotificationEnabled);
+      if(typeof draft.eveNotificationTime==="string")setEveTime(draft.eveNotificationTime);
+      if(typeof draft.dayOfNotificationEnabled==="boolean")setDayOn(draft.dayOfNotificationEnabled);
+      if(typeof draft.dayOfNotificationTime==="string")setDayTime(draft.dayOfNotificationTime);
+      if(typeof draft.beforeStartNotificationEnabled==="boolean")setBeforeOn(draft.beforeStartNotificationEnabled);
+      if(typeof draft.beforeStartNotificationMinutes==="string")setBeforeMin(Number(draft.beforeStartNotificationMinutes));
+    };
+    restore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
   useEffect(()=>{
     const form=containerRef.current?.closest("form");
     if(!form)return;
