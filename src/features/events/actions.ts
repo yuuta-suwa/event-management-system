@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { isLocalDemo, requireUser } from "@/server/authz";
+import { parseJstDateTime } from "@/lib/jst";
 import { eventFormSchema } from "./schema";
 
 export type EventActionState = { ok?:boolean; message?:string; errors?:Record<string,string[]> };
@@ -16,18 +17,24 @@ function parseForm(formData:FormData){
     applicationDeadline:formData.get("applicationDeadline"), cancelDeadline:formData.get("cancelDeadline")||undefined, cancellationPolicy:formData.get("cancellationPolicy"), bankInformation:formData.get("bankInformation"),
     promoUrl:formData.get("promoUrl")||undefined,
     status:formData.get("status"), lineNotifications:formData.get("lineNotifications")==="on",
+    eveNotificationEnabled:formData.get("eveNotificationEnabled")==="on", eveNotificationTime:formData.get("eveNotificationTime")||undefined,
+    dayOfNotificationEnabled:formData.get("dayOfNotificationEnabled")==="on", dayOfNotificationTime:formData.get("dayOfNotificationTime")||undefined,
+    beforeStartNotificationEnabled:formData.get("beforeStartNotificationEnabled")==="on", beforeStartNotificationMinutes:formData.get("beforeStartNotificationMinutes")||undefined,
+    unpaidReminderEnabled:formData.get("unpaidReminderEnabled")==="on",
   });
 }
 
 function dbInput(input:ReturnType<typeof eventFormSchema.parse>,managerId:string){return {
-  categoryId:input.categoryId,name:input.name,description:input.description,eventDate:new Date(`${input.eventDate}T00:00:00`),
-  startTime:new Date(input.startTime),receptionStartTime:new Date(input.receptionStartTime),endTime:new Date(input.endTime),venueName:input.venueName,address:input.address,
-  capacity:input.capacity,price:input.price,organizer:input.organizer,managerId,applicationDeadline:new Date(input.applicationDeadline),cancelDeadline:input.cancelDeadline?new Date(input.cancelDeadline):null,
+  categoryId:input.categoryId,name:input.name,description:input.description,eventDate:parseJstDateTime(input.eventDate),
+  startTime:parseJstDateTime(input.startTime),receptionStartTime:parseJstDateTime(input.receptionStartTime),endTime:parseJstDateTime(input.endTime),venueName:input.venueName,address:input.address,
+  capacity:input.capacity,price:input.price,organizer:input.organizer,managerId,applicationDeadline:parseJstDateTime(input.applicationDeadline),cancelDeadline:input.cancelDeadline?parseJstDateTime(input.cancelDeadline):null,
   cancellationPolicy:input.cancellationPolicy,bankInformation:input.bankInformation,promoUrl:input.promoUrl||null,status:input.status,lineNotifications:input.lineNotifications,
+  eveNotificationEnabled:input.eveNotificationEnabled,eveNotificationTime:input.eveNotificationTime,dayOfNotificationEnabled:input.dayOfNotificationEnabled,dayOfNotificationTime:input.dayOfNotificationTime,
+  beforeStartNotificationEnabled:input.beforeStartNotificationEnabled,beforeStartNotificationMinutes:input.beforeStartNotificationMinutes,unpaidReminderEnabled:input.unpaidReminderEnabled,
 };}
 
 export async function createEvent(_:EventActionState,formData:FormData):Promise<EventActionState>{
-  const user=await requireUser(["SUPER_ADMIN"]);const parsed=parseForm(formData);
+  const user=await requireUser(["SUPER_ADMIN","EVENT_MANAGER"]);const parsed=parseForm(formData);
   if(!parsed.success)return {message:"入力内容を確認してください。",errors:parsed.error.flatten().fieldErrors};
   if(isLocalDemo()){redirect("/events/demo-autumn-2026?notice=demo")}
   const event=await db.$transaction(async tx=>{const created=await tx.event.create({data:dbInput(parsed.data,user.id)});await tx.auditLog.create({data:{actorId:user.id,action:"EVENT_CREATED",entityType:"Event",entityId:created.id,after:created}});return created});

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseJstDateTime } from "@/lib/jst";
 
 const requiredDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const requiredDateTime = z.string().min(16);
@@ -23,12 +24,19 @@ export const eventFormSchema = z.object({
   promoUrl: z.union([z.literal(""), z.string().trim().url("有効なURLを入力してください")]).optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "CLOSED"]),
   lineNotifications: z.coerce.boolean().default(false),
+  eveNotificationEnabled: z.coerce.boolean().default(false),
+  eveNotificationTime: z.string().regex(/^\d{2}:\d{2}$/).default("18:00"),
+  dayOfNotificationEnabled: z.coerce.boolean().default(false),
+  dayOfNotificationTime: z.string().regex(/^\d{2}:\d{2}$/).default("12:00"),
+  beforeStartNotificationEnabled: z.coerce.boolean().default(false),
+  beforeStartNotificationMinutes: z.coerce.number().int().refine(v=>[30,60,180].includes(v)).default(180),
+  unpaidReminderEnabled: z.coerce.boolean().default(false),
 }).superRefine((value, ctx) => {
-  const start = new Date(value.startTime);
-  const reception = new Date(value.receptionStartTime);
-  const end = new Date(value.endTime);
+  const start = parseJstDateTime(value.startTime);
+  const reception = parseJstDateTime(value.receptionStartTime);
+  const end = parseJstDateTime(value.endTime);
   if (!(reception <= start && start < end)) ctx.addIssue({ code:"custom", path:["endTime"], message:"受付開始 ≤ 開始 < 終了となるよう設定してください" });
-  if (new Date(value.applicationDeadline) > start) ctx.addIssue({ code:"custom", path:["applicationDeadline"], message:"申込締切は開始時刻より前にしてください" });
+  if (parseJstDateTime(value.applicationDeadline) > start) ctx.addIssue({ code:"custom", path:["applicationDeadline"], message:"申込締切は開始時刻より前にしてください" });
 });
 
 export type EventFormInput = z.infer<typeof eventFormSchema>;

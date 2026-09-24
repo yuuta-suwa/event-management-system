@@ -69,6 +69,7 @@ enum NotificationType {
   PAYMENT_CONFIRMED
   TICKET
   EVENT_EVE
+  EVENT_DAY_OF
   EVENT_THREE_HOURS
   CUSTOM
 }
@@ -181,6 +182,13 @@ model Event {
   ticketBackgroundUrl String?
   status              EventStatus         @default(DRAFT)
   lineNotifications   Boolean             @default(false)
+  eveNotificationEnabled         Boolean  @default(true)
+  eveNotificationTime            String   @default("18:00")
+  dayOfNotificationEnabled       Boolean  @default(false)
+  dayOfNotificationTime          String   @default("12:00")
+  beforeStartNotificationEnabled Boolean  @default(true)
+  beforeStartNotificationMinutes Int      @default(180)
+  unpaidReminderEnabled          Boolean  @default(true)
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   category            EventCategory       @relation(fields: [categoryId], references: [id])
