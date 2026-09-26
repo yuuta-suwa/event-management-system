@@ -8,6 +8,7 @@ import type { EventDetail } from "./data";
 
 type Props={action:(state:EventActionState,data:FormData)=>Promise<EventActionState>;categories:{id:string;name:string}[];event?:EventDetail};
 const local=formatJstDateTimeLocal;
+const fieldLabels:Record<string,string>={name:"イベント名",categoryId:"カテゴリー",description:"イベント説明",eventDate:"開催日",receptionStartTime:"受付開始",startTime:"開始時刻",endTime:"終了時刻",venueName:"会場名",address:"住所",capacity:"定員",price:"参加費",organizer:"主催者",applicationDeadline:"申込締切",cancelDeadline:"キャンセル期限",cancellationPolicy:"キャンセル規定",bankInformation:"銀行振込情報",promoUrl:"告知ページURL",eveNotificationTime:"前日通知の時刻",dayOfNotificationTime:"当日通知の時刻",beforeStartNotificationMinutes:"開始何分前"};
 export function EventForm({action,categories,event}:Props){
   const[state,formAction,pending]=useActionState(action,{});
   const err=(name:string)=>state.errors?.[name]?.[0];
@@ -18,7 +19,7 @@ export function EventForm({action,categories,event}:Props){
     if(!isNew)return;
     const form=formRef.current;
     if(!form)return;
-    const restore=()=>{const draft=readEventDraft();if(draft){applyDraftToForm(form,draft);setDraftRestored(true)}};
+    const restore=()=>{const draft=readEventDraft();if(draft){applyDraftToForm(form,draft);form.dispatchEvent(new Event("input",{bubbles:true}));setDraftRestored(true)}};
     restore();
     let timer:ReturnType<typeof setTimeout>|undefined;
     const save=()=>{clearTimeout(timer);timer=setTimeout(()=>writeEventDraft(serializeForm(form)),400)};
@@ -29,7 +30,10 @@ export function EventForm({action,categories,event}:Props){
   const discardDraft=()=>{clearEventDraft();setDraftRestored(false);formRef.current?.reset();window.location.reload()};
   return <form ref={formRef} action={formAction} className="event-form">
   {isNew&&draftRestored&&<div className="success-banner">前回の入力内容を復元しました。<button type="button" onClick={discardDraft}>破棄してやり直す</button></div>}
-  {state.message&&<div className="form-banner" role="alert">{state.message}</div>}
+  {state.message&&<div className="form-banner" role="alert">
+    <p>{state.message}</p>
+    {state.errors&&<ul>{Object.entries(state.errors).map(([field,msgs])=><li key={field}>{fieldLabels[field]??field}：{msgs[0]}</li>)}</ul>}
+  </div>}
   <section className="form-section"><div><span>01</span><h2>基本情報</h2></div><div className="form-grid">
     <label className="span-2">イベント名<input name="name" defaultValue={event?.name} required/>{err("name")&&<small>{err("name")}</small>}</label>
     <label>カテゴリー<select name="categoryId" defaultValue={event?.categoryId??""} required><option value="" disabled>選択してください</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>{err("categoryId")&&<small>{err("categoryId")}</small>}</label>
