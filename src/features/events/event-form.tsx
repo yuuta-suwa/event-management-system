@@ -17,11 +17,19 @@ export function EventForm({action,categories,event}:Props){
   const isNew=!event;
   const formRef=useRef<HTMLFormElement>(null);
   const [draftRestored,setDraftRestored]=useState(false);
+  const [categoryId,setCategoryId]=useState(()=>state.values?.categoryId ?? event?.categoryId ?? "");
+  const [status,setStatus]=useState(()=>state.values?.status ?? event?.status ?? "DRAFT");
+  const [syncedValues,setSyncedValues]=useState(state.values);
+  if(state.values!==syncedValues){
+    setSyncedValues(state.values);
+    if(state.values?.categoryId!==undefined)setCategoryId(state.values.categoryId);
+    if(state.values?.status!==undefined)setStatus(state.values.status);
+  }
   useEffect(()=>{
     if(!isNew)return;
     const form=formRef.current;
     if(!form)return;
-    const restore=()=>{const draft=readEventDraft();if(draft){applyDraftToForm(form,draft);form.dispatchEvent(new Event("input",{bubbles:true}));setDraftRestored(true)}};
+    const restore=()=>{const draft=readEventDraft();if(draft){applyDraftToForm(form,draft);if(typeof draft.categoryId==="string")setCategoryId(draft.categoryId);if(typeof draft.status==="string")setStatus(draft.status);form.dispatchEvent(new Event("input",{bubbles:true}));setDraftRestored(true)}};
     restore();
     let timer:ReturnType<typeof setTimeout>|undefined;
     const save=()=>{clearTimeout(timer);timer=setTimeout(()=>writeEventDraft(serializeForm(form)),400)};
@@ -38,8 +46,8 @@ export function EventForm({action,categories,event}:Props){
   </div>}
   <section className="form-section"><div><span>01</span><h2>基本情報</h2></div><div className="form-grid">
     <label className="span-2">イベント名<input name="name" defaultValue={v("name",event?.name)} required/>{err("name")&&<small>{err("name")}</small>}</label>
-    <label>カテゴリー<select name="categoryId" defaultValue={v("categoryId",event?.categoryId??"")} required><option value="" disabled>選択してください</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>{err("categoryId")&&<small>{err("categoryId")}</small>}</label>
-    <label>公開状態<select name="status" defaultValue={v("status",event?.status??"DRAFT")}><option value="DRAFT">非公開（下書き）</option><option value="PUBLISHED">公開・受付中</option><option value="CLOSED">受付終了</option></select></label>
+    <label>カテゴリー<select name="categoryId" value={categoryId} onChange={e=>setCategoryId(e.target.value)} required><option value="" disabled>選択してください</option>{categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>{err("categoryId")&&<small>{err("categoryId")}</small>}</label>
+    <label>公開状態<select name="status" value={status} onChange={e=>setStatus(e.target.value)}><option value="DRAFT">非公開（下書き）</option><option value="PUBLISHED">公開・受付中</option><option value="CLOSED">受付終了</option></select></label>
     <label className="span-2">イベント説明<textarea name="description" rows={5} defaultValue={v("description",event?.description)} required/>{err("description")&&<small>{err("description")}</small>}</label>
   </div></section>
   <section className="form-section"><div><span>02</span><h2>日時・会場</h2></div><div className="form-grid">
