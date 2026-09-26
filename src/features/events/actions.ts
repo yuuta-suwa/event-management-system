@@ -7,7 +7,10 @@ import { isLocalDemo, requireUser } from "@/server/authz";
 import { parseJstDateTime } from "@/lib/jst";
 import { eventFormSchema } from "./schema";
 
-export type EventActionState = { ok?:boolean; message?:string; errors?:Record<string,string[]> };
+export type EventActionState = { ok?:boolean; message?:string; errors?:Record<string,string[]>; values?:Record<string,string> };
+
+const echoFields=["name","categoryId","description","eventDate","startTime","receptionStartTime","endTime","venueName","address","capacity","price","organizer","applicationDeadline","cancelDeadline","cancellationPolicy","bankInformation","promoUrl","status","lineNotifications"] as const;
+function rawValues(formData:FormData):Record<string,string>{const out:Record<string,string>={};for(const key of echoFields){const v=formData.get(key);if(typeof v==="string")out[key]=v}return out}
 
 function parseForm(formData:FormData){
   return eventFormSchema.safeParse({
@@ -35,7 +38,7 @@ function dbInput(input:ReturnType<typeof eventFormSchema.parse>,managerId:string
 
 export async function createEvent(_:EventActionState,formData:FormData):Promise<EventActionState>{
   const user=await requireUser(["SUPER_ADMIN","EVENT_MANAGER"]);const parsed=parseForm(formData);
-  if(!parsed.success)return {message:"入力内容を確認してください。",errors:parsed.error.flatten().fieldErrors};
+  if(!parsed.success)return {message:"入力内容を確認してください。",errors:parsed.error.flatten().fieldErrors,values:rawValues(formData)};
   if(isLocalDemo()){redirect("/events/demo-autumn-2026?notice=demo")}
   const event=await db.$transaction(async tx=>{const created=await tx.event.create({data:dbInput(parsed.data,user.id)});await tx.auditLog.create({data:{actorId:user.id,action:"EVENT_CREATED",entityType:"Event",entityId:created.id,after:created}});return created});
   revalidatePath("/events");redirect(`/events/${event.id}?notice=created`);
@@ -43,7 +46,7 @@ export async function createEvent(_:EventActionState,formData:FormData):Promise<
 
 export async function updateEvent(id:string,_:EventActionState,formData:FormData):Promise<EventActionState>{
   const user=await requireUser(["SUPER_ADMIN","EVENT_MANAGER"]);const parsed=parseForm(formData);
-  if(!parsed.success)return {message:"入力内容を確認してください。",errors:parsed.error.flatten().fieldErrors};
+  if(!parsed.success)return {message:"入力内容を確認してください。",errors:parsed.error.flatten().fieldErrors,values:rawValues(formData)};
   if(isLocalDemo()){redirect(`/events/${id}?notice=demo`)}
   const existing=await db.event.findUnique({where:{id}});if(!existing)return {message:"イベントが見つかりません。"};
   if(user.role!=="SUPER_ADMIN"&&existing.managerId!==user.id)throw new Error("FORBIDDEN");
