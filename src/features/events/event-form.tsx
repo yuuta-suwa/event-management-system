@@ -54,11 +54,11 @@ export function EventForm({action,categories,event}:Props){
     <label className="span-2">キャンセル規定<textarea name="cancellationPolicy" rows={3} defaultValue={v("cancellationPolicy",event?.cancellationPolicy??"チケット取得後は返金不可。主催者都合による中止の場合のみ返金します。")} required/></label><label className="span-2">銀行振込情報<textarea name="bankInformation" rows={3} defaultValue={v("bankInformation",event?.bankInformation)} required/></label><label className="span-2">告知ページURL（任意）<input type="url" name="promoUrl" placeholder="https://..." defaultValue={v("promoUrl",event?.promoUrl??"")}/>{err("promoUrl")&&<small>{err("promoUrl")}</small>}</label><label className="checkbox-row span-2"><input type="checkbox" name="lineNotifications" defaultChecked={checkedV("lineNotifications",event?.lineNotifications)}/><span>LINE通知を有効にする</span></label>
   </div></section>
   <section className="form-section"><div><span>04</span><h2>LINE通知設定</h2></div>
-    <NotificationSettingsFields restoreDraft={isNew} defaults={{
+    <NotificationSettingsFields key={`notify-${selectKey}`} restoreDraft={isNew} defaults={{
       eveNotificationEnabled:event?.eveNotificationEnabled??true,
-      eveNotificationTime:event?.eveNotificationTime??"18:00",
+      eveNotificationTime:v("eveNotificationTime",event?.eveNotificationTime??"18:00")!,
       dayOfNotificationEnabled:event?.dayOfNotificationEnabled??false,
-      dayOfNotificationTime:event?.dayOfNotificationTime??"12:00",
+      dayOfNotificationTime:v("dayOfNotificationTime",event?.dayOfNotificationTime??"12:00")!,
       beforeStartNotificationEnabled:event?.beforeStartNotificationEnabled??true,
       beforeStartNotificationMinutes:event?.beforeStartNotificationMinutes??180,
       unpaidReminderEnabled:event?.unpaidReminderEnabled??true,

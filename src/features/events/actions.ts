@@ -9,7 +9,7 @@ import { eventFormSchema } from "./schema";
 
 export type EventActionState = { ok?:boolean; message?:string; errors?:Record<string,string[]>; values?:Record<string,string> };
 
-const echoFields=["name","categoryId","description","eventDate","startTime","receptionStartTime","endTime","venueName","address","capacity","price","organizer","applicationDeadline","cancelDeadline","cancellationPolicy","bankInformation","promoUrl","status","lineNotifications"] as const;
+const echoFields=["name","categoryId","description","eventDate","startTime","receptionStartTime","endTime","venueName","address","capacity","price","organizer","applicationDeadline","cancelDeadline","cancellationPolicy","bankInformation","promoUrl","status","lineNotifications","eveNotificationTime","dayOfNotificationTime"] as const;
 function rawValues(formData:FormData):Record<string,string>{const out:Record<string,string>={};for(const key of echoFields){const v=formData.get(key);if(typeof v==="string")out[key]=v}return out}
 
 function parseForm(formData:FormData){
