@@ -2,7 +2,7 @@ import type {Metadata} from "next";
 import Image from "next/image";
 import QRCode from "qrcode";
 import {notFound} from "next/navigation";
-import {CalendarDays,CheckCircle2,Clock,MapPin,ScanLine,ShieldCheck,Ticket as TicketIcon,TicketCheck,UserRound} from "lucide-react";
+import {CalendarDays,CheckCircle2,Clock,MapPin,ScanLine,Info,ShieldCheck,Ticket as TicketIcon,TicketCheck,UserRound} from "lucide-react";
 import {getTicketByToken} from "@/features/tickets/data";
 import {qrTokenSecret} from "@/features/tickets/token";
 export const metadata:Metadata={title:"電子チケット",robots:{index:false,follow:false}};
@@ -24,5 +24,13 @@ export default async function TicketPage({params}:{params:Promise<{token:string}
       <div><span><TicketIcon/>チケット番号</span><strong>{ticket.ticketNumber}</strong></div>
     </div>
   </section>
+  <details className="ticket-detail"><summary><Info/>イベント詳細を見る</summary><dl>
+    <div><dt>日時</dt><dd>{ticket.eventDate.toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"})} {ticket.startTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}〜{ticket.endTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}（受付 {ticket.receptionStartTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}）</dd></div>
+    <div><dt>会場</dt><dd>{ticket.venueName}<br/>{ticket.address}</dd></div>
+    <div><dt>主催者</dt><dd>{ticket.organizer}</dd></div>
+    <div><dt>イベント内容</dt><dd className="ticket-detail-text">{ticket.description}</dd></div>
+    <div><dt>キャンセル規定</dt><dd className="ticket-detail-text">{ticket.cancellationPolicy}</dd></div>
+    {ticket.promoUrl&&<div><dt>告知ページ</dt><dd><a href={ticket.promoUrl} target="_blank" rel="noreferrer">イベントページを開く</a></dd></div>}
+  </dl></details>
   <footer><ShieldCheck/>QRコードに氏名・電話番号・メールアドレスは含まれていません</footer>
 </article></main>}
