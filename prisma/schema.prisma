@@ -201,9 +201,22 @@ model Event {
   checkins            Checkin[]
   notificationJobs    NotificationJob[]
   notificationLogs    NotificationLog[]
+  expenses            EventExpense[]
 
   @@index([eventDate, status])
   @@index([managerId])
+}
+
+model EventExpense {
+  id        String   @id @default(cuid())
+  eventId   String
+  label     String
+  amount    Int
+  note      String?
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
 }
 
 model EventStaff {
