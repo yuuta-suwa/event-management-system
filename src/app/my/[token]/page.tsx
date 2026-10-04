@@ -2,7 +2,7 @@ import {notFound} from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import QRCode from "qrcode";
-import {CalendarDays,CheckCircle2,MapPin,MessageCircle,QrCode,ShieldCheck,TicketCheck,Users,Wallet} from "lucide-react";
+import {CalendarDays,CheckCircle2,MapPin,MessageCircle,QrCode,ShieldCheck,TicketCheck,Users} from "lucide-react";
 import {getMyRegistration} from "@/features/participants/my-registration";
 import {issueTicketToken,qrTokenSecret} from "@/features/tickets/token";
 import {MyDetailsForm,CancelRegistrationForm} from "@/features/participants/self-service-form";
@@ -15,7 +15,7 @@ export default async function MyRegistrationPage({params,searchParams}:{params:P
   const data=await getMyRegistration(token);
   if(!data)notFound();
   const origin=process.env.NEXT_PUBLIC_APP_URL??"http://127.0.0.1:3000";
-  const claimLinks=data.order?await Promise.all(data.order.claimTokens.map(async t=>{const url=`${origin}/claim/${t}`;return {url,qr:await QRCode.toDataURL(url,{width:140,margin:1,color:{dark:"#17312f",light:"#ffffff"}})}})):[];
+  const claimLinks=data.order?await Promise.all(data.order.claimTokens.map(async t=>{const url=`${origin}/claim/${t.token}`;return {url,ticketNumber:t.ticketNumber,qr:await QRCode.toDataURL(url,{width:140,margin:1,color:{dark:"#17312f",light:"#ffffff"}})}})):[];
   const locked=data.attendanceStatus==="CANCELLED"||data.ticket?.checkedIn;
   const ticketReady=data.ticket&&["ACTIVE","USED"].includes(data.ticket.status);
   return <main className="public-shell">
@@ -29,8 +29,8 @@ export default async function MyRegistrationPage({params,searchParams}:{params:P
           <p><CalendarDays/>{data.event.eventDate.toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"})}<small>{data.event.startTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}–{data.event.endTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}</small></p>
           <p><MapPin/>{data.event.venueName}<small>{data.event.address}</small></p>
         </div>
+        {data.ticket&&<div className="introducer">チケットNo. <code>{data.ticket.ticketNumber}</code>{data.purchasedBy&&<><br/>購入者：{data.purchasedBy} さん</>}</div>}
         <div className="price-panel"><span>参加費</span><strong>¥{data.event.price.toLocaleString("ja-JP")}</strong></div>
-        {data.ticket?.paymentStatus!=="PAID"&&data.attendanceStatus!=="CANCELLED"&&<div className="introducer"><Wallet size={16}/> 振込先：{data.event.bankInformation}</div>}
         {ticketReady&&<Link className="demo-ticket-link" href={`/ticket/${issueTicketToken(data.ticket!.id,data.ticket!.version,qrTokenSecret())}`}><TicketCheck/>電子チケット（QR）を見る</Link>}
         <div className="line-link-panel">
           {data.participant.lineConnected?
@@ -48,8 +48,9 @@ export default async function MyRegistrationPage({params,searchParams}:{params:P
           <p className="line-link-title"><Users size={16}/> 複数枚購入（{data.order.claimedCount}/{data.order.quantity}枚 配布済み）</p>
           {claimLinks.length>0?<>
             <p>残り{claimLinks.length}枚を、招待したい方お一人ずつに別々のリンクでお送りください。</p>
-            {claimLinks.map(l=><div className="referral-box" key={l.url}><Image src={l.qr} alt="チケット受け取りQR" width={96} height={96}/><div><span><QrCode size={16}/>受け取り用QR</span><code>{l.url}</code><CopyApplyUrlButton text={l.url}/></div></div>)}
+            {claimLinks.map(l=><div className="referral-box" key={l.url}><Image src={l.qr} alt="チケット受け取りQR" width={96} height={96}/><div><span><QrCode size={16}/>チケットNo. {l.ticketNumber}（未配布）</span><code>{l.url}</code><CopyApplyUrlButton text={l.url}/></div></div>)}
           </>:<p>すべて配布済みです。</p>}
+          {data.order.distributed.length>0&&<><p className="line-link-title">配布済みの内訳</p><ul>{data.order.distributed.map(d=><li key={d.ticketNumber}><code>{d.ticketNumber}</code> → {d.recipientName} さん</li>)}</ul></>}
         </div>}
       </aside>
       <section className="application-form-card">

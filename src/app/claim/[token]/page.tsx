@@ -19,7 +19,7 @@ export default async function ClaimPage({params}:{params:Promise<{token:string}>
             <p><MapPin/>{info.venueName}<small>{info.address}</small></p>
           </div>
           <div className="price-panel"><span>参加費</span><strong>¥{info.price.toLocaleString("ja-JP")}</strong></div>
-          <div className="introducer">{info.buyerName} さんからチケットが届いています</div>
+          <div className="introducer">{info.buyerName} さんからチケットが届いています（チケットNo. {info.ticketNumber}）</div>
         </>:<h1>{info.status==="claimed"?"このチケットはすでに受け取り済みです":"このチケットは現在受け取れません"}</h1>}
       </aside>
       <section className="application-form-card">

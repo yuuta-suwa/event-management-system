@@ -37,7 +37,7 @@ export async function claimTicket(_:ClaimState,formData:FormData):Promise<ClaimS
       const registration=await tx.eventRegistration.create({data:{eventId:ticket.eventId,participantId:participant.id,ticketId:ticket.id,applicationSource:"ORDER_CLAIM"}});
       await tx.ticketOrder.update({where:{id:ticket.orderId},data:{claimedCount:{increment:1}}});
       if(ticket.event.lineNotifications){await queueParticipantNotification(tx,ticket.eventId,participant.id,"APPLICATION");if(ticket.paymentStatus!=="PAID")await queueParticipantNotification(tx,ticket.eventId,participant.id,"PAYMENT_REMINDER",new Date(Date.now()+3*24*60*60*1000))}
-      await tx.auditLog.create({data:{action:"TICKET_CLAIMED",entityType:"Ticket",entityId:ticket.id,after:{participantId:participant.id,orderId:ticket.orderId}}});
+      await tx.auditLog.create({data:{action:"TICKET_CLAIMED",entityType:"Ticket",entityId:ticket.id,after:{participantId:participant.id,orderId:ticket.orderId,ticketNumber:ticket.ticketNumber,buyerParticipantId:(await tx.ticketOrder.findUnique({where:{id:ticket.orderId}}))?.buyerParticipantId}}});
       return issueRegistrationToken(registration.id,secret);
     });
   }catch(error){
