@@ -68,3 +68,7 @@ VercelへNext.jsアプリを接続し、マネージドPostgreSQLを用意しま
 重点テスト（入金、QR、譲渡、権限、売上、LINE、CSV、レート制限）を実装済みです。実機・ステージング確認項目は [docs/TEST_PLAN.md](docs/TEST_PLAN.md) を参照してください。
 
 詳細な設計判断は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) を参照してください。
+
+## イベント告知LP
+
+イベント告知LPは、このリポジトリの外（ChatGPTのサイト作成機能）で管理しています。イベントごとにそちら側で内容を更新してください。イベント作成・編集画面（`/events/[id]/edit`）の「告知ページURL（任意）」に、そのLPのURLを設定すると、申込画面からLPへのリンクが表示されます。

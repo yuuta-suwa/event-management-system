@@ -69,6 +69,7 @@ enum NotificationType {
   PAYMENT_CONFIRMED
   TICKET
   EVENT_EVE
+  EVENT_DAY_OF
   EVENT_THREE_HOURS
   CUSTOM
 }
@@ -125,14 +126,18 @@ model Participant {
   gender            String?
   age               Int?
   occupation        String?
+  referrerName      String?
+  snsContact        String?
   lineUserId        String?             @unique
   lineConnected     Boolean             @default(false)
+  lineLinkCode      String              @unique
   notes             String?
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
   registrations     EventRegistration[]
   tickets           Ticket[]
+  ticketOrders      TicketOrder[]
   checkins          Checkin[]
   notifications     NotificationLog[]
   incomingTransfers TicketTransfer[]    @relation("NewParticipant")
@@ -173,22 +178,45 @@ model Event {
   cancelDeadline      DateTime?
   cancellationPolicy  String
   bankInformation     String
+  promoUrl            String?
+  ticketBackgroundUrl String?
   status              EventStatus         @default(DRAFT)
   lineNotifications   Boolean             @default(false)
+  eveNotificationEnabled         Boolean  @default(true)
+  eveNotificationTime            String   @default("18:00")
+  dayOfNotificationEnabled       Boolean  @default(false)
+  dayOfNotificationTime          String   @default("12:00")
+  beforeStartNotificationEnabled Boolean  @default(true)
+  beforeStartNotificationMinutes Int      @default(180)
+  unpaidReminderEnabled          Boolean  @default(true)
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   category            EventCategory       @relation(fields: [categoryId], references: [id])
   manager             User                @relation("EventManager", fields: [managerId], references: [id])
   staff               EventStaff[]
   allocations         TicketAllocation[]
+  ticketOrders        TicketOrder[]
   registrations       EventRegistration[]
   tickets             Ticket[]
   checkins            Checkin[]
   notificationJobs    NotificationJob[]
   notificationLogs    NotificationLog[]
+  expenses            EventExpense[]
 
   @@index([eventDate, status])
   @@index([managerId])
+}
+
+model EventExpense {
+  id        String   @id @default(cuid())
+  eventId   String
+  label     String
+  amount    Int
+  note      String?
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
 }
 
 model EventStaff {
@@ -215,9 +243,27 @@ model TicketAllocation {
   event             Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   staff             StaffProfile @relation(fields: [staffId], references: [id])
   tickets           Ticket[]
+  orders            TicketOrder[]
 
   @@unique([eventId, staffId])
   @@index([eventId])
+}
+
+model TicketOrder {
+  id                 String            @id @default(cuid())
+  eventId            String
+  buyerParticipantId String
+  allocationId       String?
+  quantity           Int
+  claimedCount       Int               @default(1)
+  createdAt          DateTime          @default(now())
+  event              Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  buyer              Participant       @relation(fields: [buyerParticipantId], references: [id])
+  allocation         TicketAllocation? @relation(fields: [allocationId], references: [id])
+  tickets            Ticket[]
+
+  @@index([eventId])
+  @@index([buyerParticipantId])
 }
 
 model EventRegistration {
@@ -241,11 +287,13 @@ model Ticket {
   id                String             @id @default(cuid())
   eventId           String
   allocationId      String?
+  orderId           String?
   participantId     String
   introducerStaffId String?
   ticketNumber      String             @unique
   qrTokenHash       String             @unique
   qrTokenVersion    Int                @default(1)
+  claimed           Boolean            @default(true)
   status            TicketStatus       @default(PROVISIONAL)
   paymentStatus     PaymentStatus      @default(UNPAID)
   issuedAt          DateTime?
@@ -255,6 +303,7 @@ model Ticket {
   updatedAt         DateTime           @updatedAt
   event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   allocation        TicketAllocation?  @relation(fields: [allocationId], references: [id])
+  order             TicketOrder?       @relation(fields: [orderId], references: [id])
   participant       Participant        @relation(fields: [participantId], references: [id])
   introducer        StaffProfile?      @relation("Introducer", fields: [introducerStaffId], references: [id])
   registration      EventRegistration?
@@ -264,6 +313,7 @@ model Ticket {
 
   @@index([eventId, paymentStatus, status])
   @@index([participantId])
+  @@index([orderId])
 }
 
 model Payment {
@@ -345,6 +395,15 @@ model NotificationLog {
   event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId, createdAt])
+}
+
+model LineGroup {
+  id       String    @id @default(cuid())
+  groupId  String    @unique
+  name     String?
+  active   Boolean   @default(true)
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
 }
 
 model AuditLog {

@@ -10,7 +10,9 @@ export type EventSummary = {
 export type EventDetail = EventSummary & {
   categoryId:string; description:string; receptionStartTime:Date; organizer:string;
   applicationDeadline:Date; cancelDeadline:Date|null; cancellationPolicy:string;
-  bankInformation:string; lineNotifications:boolean; managerId:string;
+  promoUrl:string|null; ticketBackgroundUrl:string|null; lineNotifications:boolean; managerId:string;
+  eveNotificationEnabled:boolean; eveNotificationTime:string; dayOfNotificationEnabled:boolean; dayOfNotificationTime:string;
+  beforeStartNotificationEnabled:boolean; beforeStartNotificationMinutes:number; unpaidReminderEnabled:boolean;
 };
 
 const demoEvent: EventDetail = {
@@ -22,7 +24,9 @@ const demoEvent: EventDetail = {
   status:"PUBLISHED", registrationCount:24, paidCount:19, organizer:"EVENT MANAGEMENT事務局",
   applicationDeadline:new Date("2026-09-10T23:59:00+09:00"), cancelDeadline:new Date("2026-09-05T23:59:00+09:00"),
   cancellationPolicy:"チケット取得後は返金不可。主催者都合による中止の場合のみ返金します。",
-  bankInformation:"イベント専用口座（申込完了後に参加者へ案内）", lineNotifications:true, managerId:"local-demo-super-admin",
+  promoUrl:null, ticketBackgroundUrl:null, lineNotifications:true, managerId:"local-demo-super-admin",
+  eveNotificationEnabled:true, eveNotificationTime:"18:00", dayOfNotificationEnabled:false, dayOfNotificationTime:"12:00",
+  beforeStartNotificationEnabled:true, beforeStartNotificationMinutes:180, unpaidReminderEnabled:true,
 };
 
 export async function listCategories() {
@@ -34,13 +38,13 @@ export async function listEvents(user:{id:string;role:UserRole}):Promise<EventSu
   if (isLocalDemo()) return [demoEvent];
   const rows=await db.event.findMany({
     where:user.role==="SUPER_ADMIN"?{}:{OR:[{managerId:user.id},{staff:{some:{userId:user.id}}}]},
-    orderBy:[{eventDate:"asc"},{startTime:"asc"}], include:{category:true,_count:{select:{registrations:true}},tickets:{select:{paymentStatus:true}}},
+    orderBy:[{eventDate:"asc"},{startTime:"asc"}], include:{category:true,tickets:{select:{paymentStatus:true,status:true}}},
   });
-  return rows.map(e=>({...e,categoryName:e.category.name,registrationCount:e._count.registrations,paidCount:e.tickets.filter(t=>t.paymentStatus==="PAID").length}));
+  return rows.map(e=>({...e,categoryName:e.category.name,registrationCount:e.tickets.filter(t=>t.status!=="CANCELLED"&&t.status!=="EXPIRED").length,paidCount:e.tickets.filter(t=>t.paymentStatus==="PAID").length}));
 }
 
 export async function getEvent(id:string,user:{id:string;role:UserRole}):Promise<EventDetail|null> {
   if (isLocalDemo()) return id===demoEvent.id?demoEvent:null;
-  const e=await db.event.findFirst({where:{id,...(user.role==="SUPER_ADMIN"?{}:{OR:[{managerId:user.id},{staff:{some:{userId:user.id}}}]})},include:{category:true,_count:{select:{registrations:true}},tickets:{select:{paymentStatus:true}}}});
-  return e?{...e,categoryName:e.category.name,registrationCount:e._count.registrations,paidCount:e.tickets.filter(t=>t.paymentStatus==="PAID").length}:null;
+  const e=await db.event.findFirst({where:{id,...(user.role==="SUPER_ADMIN"?{}:{OR:[{managerId:user.id},{staff:{some:{userId:user.id}}}]})},include:{category:true,tickets:{select:{paymentStatus:true,status:true}}}});
+  return e?{...e,categoryName:e.category.name,registrationCount:e.tickets.filter(t=>t.status!=="CANCELLED"&&t.status!=="EXPIRED").length,paidCount:e.tickets.filter(t=>t.paymentStatus==="PAID").length}:null;
 }
