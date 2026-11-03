@@ -92,6 +92,9 @@ model User {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   staffProfile      StaffProfile?
+  eventRoles        EventRoleAssignment[] @relation("EventRoleUser")
+  collectedTickets  Ticket[]              @relation("TicketCollector")
+  receipts          CollectionReceipt[]   @relation("ReceiptCollector")
   participant       Participant?
   sessions          Session[]
   accounts          Account[]
@@ -203,6 +206,10 @@ model Event {
   notificationJobs    NotificationJob[]
   notificationLogs    NotificationLog[]
   expenses            EventExpense[]
+  roleAssignments     EventRoleAssignment[]
+  receipts            CollectionReceipt[]
+  feeAdvances         FeeAdvance[]
+  expenseAdvances     ExpenseAdvance[]
 
   @@index([eventDate, status])
   @@index([managerId])
@@ -216,6 +223,7 @@ model EventExpense {
   note      String?
   createdAt DateTime @default(now())
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  advance   ExpenseAdvance?
 
   @@index([eventId])
 }
@@ -262,6 +270,7 @@ model TicketOrder {
   buyer              Participant       @relation(fields: [buyerParticipantId], references: [id])
   allocation         TicketAllocation? @relation(fields: [allocationId], references: [id])
   tickets            Ticket[]
+  receipts           CollectionReceipt[]
 
   @@index([eventId])
   @@index([buyerParticipantId])
@@ -296,6 +305,7 @@ model Ticket {
   qrTokenVersion    Int                @default(1)
   claimed           Boolean            @default(true)
   shareVersion      Int                @default(0)
+  collectorId       String?
   status            TicketStatus       @default(PROVISIONAL)
   paymentStatus     PaymentStatus      @default(UNPAID)
   issuedAt          DateTime?
@@ -306,6 +316,8 @@ model Ticket {
   event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   allocation        TicketAllocation?  @relation(fields: [allocationId], references: [id])
   order             TicketOrder?       @relation(fields: [orderId], references: [id])
+  collector         User?              @relation("TicketCollector", fields: [collectorId], references: [id], onDelete: SetNull)
+  receipts          CollectionReceipt[]
   participant       Participant        @relation(fields: [participantId], references: [id])
   introducer        StaffProfile?      @relation("Introducer", fields: [introducerStaffId], references: [id])
   registration      EventRegistration?
@@ -314,6 +326,7 @@ model Ticket {
   transfers         TicketTransfer[]
 
   @@index([eventId, paymentStatus, status])
+  @@index([collectorId])
   @@index([participantId])
   @@index([orderId])
 }
@@ -479,4 +492,128 @@ model LineFriend {
 model LineWebhookEvent {
   id         String   @id
   receivedAt DateTime @default(now())
+}
+
+enum EventRole {
+  COLLECTOR
+  APPROVER
+}
+
+model EventRoleAssignment {
+  id         String    @id @default(cuid())
+  eventId    String
+  userId     String
+  role       EventRole
+  active     Boolean   @default(true)
+  assignedBy String?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  event      Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user       User      @relation("EventRoleUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId, role])
+  @@index([eventId, role, active])
+}
+
+model CollectionReceipt {
+  id           String       @id @default(cuid())
+  eventId      String
+  collectorId  String
+  orderId      String?
+  ticketId     String?
+  payerName    String?
+  amount       Int
+  method       String
+  receivedAt   DateTime
+  note         String?
+  status       String       @default("RECORDED")
+  feeAdvanceId String?
+  voidedAt     DateTime?
+  voidedBy     String?
+  voidReason   String?
+  createdAt    DateTime     @default(now())
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  collector    User         @relation("ReceiptCollector", fields: [collectorId], references: [id])
+  order        TicketOrder? @relation(fields: [orderId], references: [id])
+  ticket       Ticket?      @relation(fields: [ticketId], references: [id])
+
+  @@index([eventId, collectorId])
+  @@index([orderId])
+  @@index([ticketId])
+}
+
+model FeeAdvance {
+  id                   String               @id @default(cuid())
+  eventId              String
+  obligorName          String
+  obligorParticipantId String?
+  advancerName         String
+  orderId              String?
+  ticketId             String?
+  amount               Int
+  advancedAt           DateTime
+  method               String               @default("CASH")
+  evidenceNote         String?
+  status               String               @default("OPEN")
+  createdBy            String
+  cancelledAt          DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  event                Event                @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  recoveries           FeeAdvanceRecovery[]
+
+  @@index([eventId, status])
+}
+
+model FeeAdvanceRecovery {
+  id           String     @id @default(cuid())
+  feeAdvanceId String
+  amount       Int
+  recoveredAt  DateTime
+  method       String     @default("CASH")
+  note         String?
+  createdBy    String
+  createdAt    DateTime   @default(now())
+  feeAdvance   FeeAdvance @relation(fields: [feeAdvanceId], references: [id], onDelete: Restrict)
+
+  @@index([feeAdvanceId])
+}
+
+model ExpenseAdvance {
+  id             String              @id @default(cuid())
+  eventId        String
+  advancerName   String
+  advancerUserId String?
+  category       String
+  payee          String
+  amount         Int
+  paidAt         DateTime
+  evidenceNote   String?
+  status         String              @default("REQUESTED")
+  requestedBy    String
+  reviewerId     String?
+  reviewedAt     DateTime?
+  returnReason   String?
+  expenseId      String?             @unique
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  event          Event               @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  expense        EventExpense?       @relation(fields: [expenseId], references: [id])
+  settlements    ExpenseSettlement[]
+
+  @@index([eventId, status])
+}
+
+model ExpenseSettlement {
+  id               String         @id @default(cuid())
+  expenseAdvanceId String
+  amount           Int
+  settledAt        DateTime
+  method           String         @default("BANK_TRANSFER")
+  note             String?
+  createdBy        String
+  createdAt        DateTime       @default(now())
+  expenseAdvance   ExpenseAdvance @relation(fields: [expenseAdvanceId], references: [id], onDelete: Restrict)
+
+  @@index([expenseAdvanceId])
 }
