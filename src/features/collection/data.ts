@@ -1,10 +1,12 @@
 import {db} from "@/server/db";
 import {isLocalDemo} from "@/server/authz";
 import {loadEventAccess} from "./access";
-import {custodyBalance,targetSummary,type CollectionStatus,type EventAccess} from "./domain";
+import {targetSummary,type CollectionStatus,type EventAccess} from "./domain";
+import {collectorCustody,eligibleRecipients} from "./custody";
+import {remittanceStatusLabel,storePaymentStatus,storeUnpaid,type RemittanceStatus,type StorePaymentStatus} from "./remittance-domain";
 export type CollectionGroup={key:string;label:string;ticketCount:number;ticketNumbers:string[];collectorId:string|null;collectorName:string|null;billed:number;received:number;unpaid:number;status:CollectionStatus;manualPaid:boolean};
 export type ReceiptRow={id:string;receivedAt:Date;amount:number;method:string;payerName:string|null;collectorName:string;status:string;voidReason:string|null;targetLabel:string;note:string|null;collectorId:string};
-export type CollectionView={event:{id:string;name:string;price:number};access:EventAccess;groups:CollectionGroup[];totals:{billed:number;received:number;unpaid:number};collectors:{userId:string;name:string}[];candidates:{id:string;name:string;role:string}[];custody:{collectorId:string;name:string;received:number;remitted:number;balance:number}[];receipts:ReceiptRow[]};
+export type CollectionView={event:{id:string;name:string;price:number};access:EventAccess;groups:CollectionGroup[];totals:{billed:number;received:number;unpaid:number};collectors:{userId:string;name:string}[];candidates:{id:string;name:string;role:string}[];custody:{collectorId:string;name:string;received:number;remitted:number;offsets:number;unreconciled:number;balance:number}[];receipts:ReceiptRow[]};
 const live={status:{notIn:["CANCELLED","EXPIRED"] as ("CANCELLED"|"EXPIRED")[]},paymentStatus:{notIn:["CANCELLED","REFUNDED"] as ("CANCELLED"|"REFUNDED")[]}};
 export async function getCollectionView(user:{id:string;role:string},eventId:string):Promise<CollectionView|null>{
   if(isLocalDemo())return null;
@@ -28,17 +30,18 @@ export async function getCollectionView(user:{id:string;role:string},eventId:str
   const totals=groups.reduce((n,g)=>({billed:n.billed+g.billed,received:n.received+g.received,unpaid:n.unpaid+g.unpaid}),{billed:0,received:0,unpaid:0});
   const assigned=await db.eventRoleAssignment.findMany({where:{eventId,role:"COLLECTOR",active:true},include:{user:{select:{id:true,name:true}}}});
   const candidates=access.manager?(await db.user.findMany({where:{role:{not:"PARTICIPANT"},status:"ACTIVE",id:{notIn:assigned.map(a=>a.userId)}},select:{id:true,name:true,role:true},orderBy:{name:"asc"},take:100})):[];
-  const custodyRows=await db.collectionReceipt.groupBy({by:["collectorId"],where:{eventId,status:{not:"VOIDED"},...(access.manager?{}:{collectorId:user.id})},_sum:{amount:true}});
+  const receiptCollectors=await db.collectionReceipt.groupBy({by:["collectorId"],where:{eventId,status:{not:"VOIDED"}}});
+  const custodyIds=access.manager?[...new Set([...assigned.map(a=>a.userId),...receiptCollectors.map(r=>r.collectorId)])]:[user.id];
   const names=new Map(assigned.map(a=>[a.userId,a.user.name]));
-  const missing=custodyRows.map(r=>r.collectorId).filter(id=>!names.has(id));
+  const missing=custodyIds.filter(id=>!names.has(id));
   if(missing.length)for(const u of await db.user.findMany({where:{id:{in:missing}},select:{id:true,name:true}}))names.set(u.id,u.name);
-  const custody=custodyRows.map(r=>({collectorId:r.collectorId,name:names.get(r.collectorId)??"",received:r._sum.amount??0,remitted:0,balance:custodyBalance({received:r._sum.amount??0})}));
+  const custody=await Promise.all(custodyIds.map(async id=>{const c=await collectorCustody(db,eventId,id);return {collectorId:id,name:names.get(id)??"",received:c.received,remitted:c.committed,offsets:c.offsets,unreconciled:c.unreconciled,balance:c.balance}}));
   const rows:ReceiptRow[]=receipts.filter(r=>access.manager||r.collectorId===user.id).slice(0,60).map(r=>({id:r.id,receivedAt:r.receivedAt,amount:r.amount,method:r.method,payerName:r.payerName,collectorName:r.collector.name,status:r.status,voidReason:r.voidReason,targetLabel:labelOf.get(r.orderId?`order:${r.orderId}`:`ticket:${r.ticketId}`)??"",note:r.note,collectorId:r.collectorId}));
   return {event:{id:event.id,name:event.name,price:event.price},access,groups,totals,collectors:assigned.map(a=>({userId:a.userId,name:a.user.name})),candidates,custody,receipts:rows};
 }
 export type FeeAdvanceRow={id:string;obligorName:string;advancerName:string;amount:number;recovered:number;outstanding:number;status:string;advancedAt:Date;evidenceNote:string|null;createdBy:string;recoveries:{id:string;amount:number;recoveredAt:Date;method:string}[]};
 export type ExpenseAdvanceRow={id:string;advancerName:string;category:string;payee:string;amount:number;settled:number;unsettled:number;status:string;paidAt:Date;evidenceNote:string|null;requestedBy:string;returnReason:string|null;expenseRecognized:boolean;settlements:{id:string;amount:number;settledAt:Date}[]};
-export type AdvancesView={event:{id:string;name:string};access:EventAccess;targets:{key:string;label:string}[];feeAdvances:FeeAdvanceRow[];expenseAdvances:ExpenseAdvanceRow[];totals:{feeOutstanding:number;expenseUnsettled:number;expenseApproved:number}};
+export type AdvancesView={event:{id:string;name:string};access:EventAccess;collectors:{userId:string;name:string}[];targets:{key:string;label:string}[];feeAdvances:FeeAdvanceRow[];expenseAdvances:ExpenseAdvanceRow[];totals:{feeOutstanding:number;expenseUnsettled:number;expenseApproved:number}};
 export async function getAdvancesView(user:{id:string;role:string},eventId:string):Promise<AdvancesView|null>{
   if(isLocalDemo())return null;
   const ctx=await loadEventAccess(user,eventId);
@@ -51,5 +54,32 @@ export async function getAdvancesView(user:{id:string;role:string},eventId:strin
   const tickets=await db.ticket.findMany({where:{eventId,...live,...(access.manager?{}:{collectorId:user.id})},include:{participant:true,order:{include:{buyer:true}}},orderBy:{ticketNumber:"asc"}});
   const seen=new Map<string,string>();
   for(const t of tickets){const key=t.orderId?`order:${t.orderId}`:`ticket:${t.id}`;if(!seen.has(key))seen.set(key,t.order?.buyer.name??t.participant.name)}
-  return {event:{id:event.id,name:event.name},access,targets:[...seen.entries()].map(([key,label])=>({key,label})),feeAdvances,expenseAdvances,totals:{feeOutstanding:feeAdvances.reduce((n,f)=>n+f.outstanding,0),expenseUnsettled:expenseAdvances.reduce((n,e)=>n+e.unsettled,0),expenseApproved:expenseAdvances.filter(e=>["APPROVED","PARTIALLY_SETTLED","SETTLED"].includes(e.status)).reduce((n,e)=>n+e.amount,0)}};
+  const collectors=(await db.eventRoleAssignment.findMany({where:{eventId,role:"COLLECTOR",active:true},include:{user:{select:{name:true}}}})).map(a=>({userId:a.userId,name:a.user.name}));
+  return {event:{id:event.id,name:event.name},access,collectors,targets:[...seen.entries()].map(([key,label])=>({key,label})),feeAdvances,expenseAdvances,totals:{feeOutstanding:feeAdvances.reduce((n,f)=>n+f.outstanding,0),expenseUnsettled:expenseAdvances.reduce((n,e)=>n+e.unsettled,0),expenseApproved:expenseAdvances.filter(e=>["APPROVED","PARTIALLY_SETTLED","SETTLED"].includes(e.status)).reduce((n,e)=>n+e.amount,0)}};
+}
+
+export type RemittanceRow={id:string;senderName:string;recipientName:string;amount:number;method:string;status:RemittanceStatus;statusLabel:string;plannedAt:Date|null;sentAt:Date|null;receivedAt:Date|null;receivedAmount:number|null;evidenceNote:string|null;note:string|null;discrepancyNote:string|null;cancelReason:string|null;mineAsSender:boolean;mineAsRecipient:boolean};
+export type RemittanceView={event:{id:string;name:string};access:EventAccess;custody:{received:number;committed:number;offsets:number;unreconciled:number;balance:number;available:number}|null;recipients:{id:string;name:string}[];remittances:RemittanceRow[];totals:{reconciled:number;unreconciled:number;planned:number}};
+export async function getRemittanceView(user:{id:string;role:string},eventId:string):Promise<RemittanceView|null>{
+  if(isLocalDemo())return null;
+  const ctx=await loadEventAccess(user,eventId);
+  if(!ctx||!ctx.access.canView)return null;
+  const {event,access}=ctx;
+  const asSender=access.collector,asRecipient=access.approver;
+  if(!asSender&&!asRecipient)return null;
+  const rows=await db.remittance.findMany({where:{eventId,OR:[...(asSender?[{senderId:user.id}]:[]),...(asRecipient?[{recipientId:user.id}]:[])]},include:{sender:{select:{name:true}},recipient:{select:{name:true}}},orderBy:{createdAt:"desc"}});
+  const remittances:RemittanceRow[]=rows.map(r=>({id:r.id,senderName:r.sender.name,recipientName:r.recipient.name,amount:r.amount,method:r.method,status:r.status as RemittanceStatus,statusLabel:remittanceStatusLabel[r.status as RemittanceStatus]??r.status,plannedAt:r.plannedAt,sentAt:r.sentAt,receivedAt:r.receivedAt,receivedAmount:r.receivedAmount,evidenceNote:r.evidenceNote,note:r.note,discrepancyNote:r.discrepancyNote,cancelReason:r.cancelReason,mineAsSender:r.senderId===user.id,mineAsRecipient:r.recipientId===user.id}));
+  const sum=(statuses:string[])=>remittances.filter(r=>statuses.includes(r.status)).reduce((n,r)=>n+r.amount,0);
+  return {event:{id:event.id,name:event.name},access,custody:asSender?await collectorCustody(db,eventId,user.id):null,recipients:asSender?(await eligibleRecipients(db,eventId)).filter(r=>r.id!==user.id):[],remittances,totals:{reconciled:sum(["RECEIVED"]),unreconciled:sum(["SENT_REPORTED","DISCREPANCY"]),planned:sum(["PLANNED"])}};
+}
+export type StorePaymentRow={id:string;payee:string;description:string|null;plannedAmount:number;plannedDate:Date|null;paid:number;unpaid:number;status:StorePaymentStatus;records:{id:string;amount:number;paidAt:Date;method:string;evidenceNote:string|null;receiptNote:string|null;status:string;voidReason:string|null}[]};
+export type StorePaymentView={event:{id:string;name:string};rows:StorePaymentRow[];linkableExpenses:{id:string;label:string;amount:number}[];totals:{planned:number;paid:number;unpaid:number}};
+export async function getStorePaymentView(user:{id:string;role:string},eventId:string):Promise<StorePaymentView|null>{
+  if(isLocalDemo())return null;
+  const ctx=await loadEventAccess(user,eventId);
+  if(!ctx||!ctx.access.approver)return null;
+  const payments=await db.storePayment.findMany({where:{eventId},include:{records:{orderBy:{paidAt:"asc"}}},orderBy:{createdAt:"desc"}});
+  const rows:StorePaymentRow[]=payments.map(p=>{const paid=p.records.filter(r=>r.status==="RECORDED").reduce((n,r)=>n+r.amount,0);return {id:p.id,payee:p.payee,description:p.description,plannedAmount:p.plannedAmount,plannedDate:p.plannedDate,paid,unpaid:storeUnpaid(p.plannedAmount,paid),status:storePaymentStatus(p.plannedAmount,paid),records:p.records.map(r=>({id:r.id,amount:r.amount,paidAt:r.paidAt,method:r.method,evidenceNote:r.evidenceNote,receiptNote:r.receiptNote,status:r.status,voidReason:r.voidReason}))}});
+  const linkable=await db.eventExpense.findMany({where:{eventId,advance:null,storePayment:null},orderBy:{createdAt:"desc"},select:{id:true,label:true,amount:true}});
+  return {event:{id:ctx.event.id,name:ctx.event.name},rows,linkableExpenses:linkable,totals:{planned:rows.reduce((n,r)=>n+r.plannedAmount,0),paid:rows.reduce((n,r)=>n+r.paid,0),unpaid:rows.reduce((n,r)=>n+r.unpaid,0)}};
 }

@@ -42,3 +42,10 @@ describe("notification schedule",()=>{
     expect(beforeStartLabel(30)).toBe("30分前");
   });
 });
+import {isStaleReminder} from "@/features/notifications/schedule";
+describe("期限切れ通知のガード",()=>{
+  const now=new Date("2026-11-04T00:00:00Z");
+  it("開催済みイベントの前日・当日・開始前通知は送らない",()=>{for(const type of ["EVENT_EVE","EVENT_DAY_OF","EVENT_THREE_HOURS"])expect(isStaleReminder({type,scheduledAt:new Date("2026-10-20T18:00:00Z"),eventStart:new Date("2026-10-21T05:00:00Z"),now})).toBe(true)});
+  it("予定から12時間以上遅れた時間依存の通知は送らない",()=>{expect(isStaleReminder({type:"EVENT_EVE",scheduledAt:new Date("2026-11-03T08:00:00Z"),eventStart:new Date("2026-11-05T05:00:00Z"),now})).toBe(true)});
+  it("予定どおりの通知と、時間に依存しない通知は送る",()=>{expect(isStaleReminder({type:"EVENT_EVE",scheduledAt:new Date("2026-11-03T23:00:00Z"),eventStart:new Date("2026-11-05T05:00:00Z"),now})).toBe(false);expect(isStaleReminder({type:"APPLICATION",scheduledAt:new Date("2026-10-01T00:00:00Z"),eventStart:new Date("2026-10-02T00:00:00Z"),now})).toBe(false);expect(isStaleReminder({type:"TICKET",scheduledAt:new Date("2026-10-01T00:00:00Z"),eventStart:new Date("2026-12-02T00:00:00Z"),now})).toBe(false)});
+});

@@ -7,6 +7,7 @@ import {isLocalDemo,requireUser} from "@/server/authz";
 import {loadEventAccess} from "./access";
 import {canTransitionExpense,feeAdvanceStatus,settlementStatus,unsettled,type ExpenseAdvanceStatus} from "./domain";
 import {loadTarget} from "./targets";
+import {collectorCustody} from "./custody";
 const STAFF=["SUPER_ADMIN","EVENT_MANAGER","RECEPTION_STAFF"] as const;
 const back=(eventId:string,kind:"notice"|"error",code:string):never=>redirect(`/advances?event=${eventId}&${kind}=${code}`);
 async function context(eventId:string){
@@ -15,7 +16,7 @@ async function context(eventId:string){
   if(!ctx||!ctx.access.canView)throw new Error("FORBIDDEN");
   return {user,...ctx};
 }
-const known=["FORBIDDEN","NOT_FOUND","INVALID_TRANSITION","EXCEEDS_BALANCE","HAS_RECORDS","TARGET_NOT_FOUND","SELF_APPROVAL"];
+const known=["FORBIDDEN","NOT_FOUND","INVALID_TRANSITION","EXCEEDS_BALANCE","HAS_RECORDS","TARGET_NOT_FOUND","SELF_APPROVAL","EXCEEDS_CUSTODY","INVALID_COLLECTOR"];
 function errorCode(error:unknown){
   if(error instanceof Error&&known.includes(error.message))return error.message.toLowerCase();
   if(error instanceof Prisma.PrismaClientKnownRequestError&&error.code==="P2034")return "conflict";
@@ -170,7 +171,7 @@ export async function resubmitExpenseAdvance(eventId:string,formData:FormData){
   }catch(error){code=errorCode(error)}
   return back(eventId,code==="expense_resubmitted"?"notice":"error",code);
 }
-const settleSchema=z.object({id:z.string().min(1),amount:z.coerce.number().int().min(1).max(100_000_000),settledAt:day,method:method.default("BANK_TRANSFER"),note:z.string().trim().max(300).optional()});
+const settleSchema=z.object({id:z.string().min(1),custodyCollectorId:z.string().optional(),amount:z.coerce.number().int().min(1).max(100_000_000),settledAt:day,method:method.default("BANK_TRANSFER"),note:z.string().trim().max(300).optional()});
 export async function recordExpenseSettlement(eventId:string,formData:FormData){
   const {user,access}=await context(eventId);
   if(!access.approver)throw new Error("FORBIDDEN");
@@ -186,9 +187,14 @@ export async function recordExpenseSettlement(eventId:string,formData:FormData){
       const next=settlementStatus(advance.amount,settled+i.amount);
       if(!canTransitionExpense(advance.status as ExpenseAdvanceStatus,next))throw new Error("INVALID_TRANSITION");
       if(i.amount>unsettled(advance.amount,settled))throw new Error("EXCEEDS_BALANCE");
-      const settlement=await tx.expenseSettlement.create({data:{expenseAdvanceId:advance.id,amount:i.amount,settledAt:jst(i.settledAt),method:i.method,note:i.note||null,createdBy:user.id}});
+      const custodyCollectorId=i.custodyCollectorId||null;
+      if(custodyCollectorId){
+        if(!await tx.eventRoleAssignment.findFirst({where:{eventId,userId:custodyCollectorId,role:"COLLECTOR",active:true}}))throw new Error("INVALID_COLLECTOR");
+        if(i.amount>(await collectorCustody(tx,eventId,custodyCollectorId)).available)throw new Error("EXCEEDS_CUSTODY");
+      }
+      const settlement=await tx.expenseSettlement.create({data:{expenseAdvanceId:advance.id,amount:i.amount,settledAt:jst(i.settledAt),method:custodyCollectorId?"CASH":i.method,note:i.note||null,createdBy:user.id,custodyCollectorId}});
       await tx.expenseAdvance.update({where:{id:advance.id},data:{status:next}});
-      await tx.auditLog.create({data:{actorId:user.id,action:"EXPENSE_SETTLEMENT_RECORDED",entityType:"ExpenseSettlement",entityId:settlement.id,before:{status:advance.status},after:{amount:i.amount,status:next,expenseRecognizedOnce:true}}});
+      await tx.auditLog.create({data:{actorId:user.id,action:"EXPENSE_SETTLEMENT_RECORDED",entityType:"ExpenseSettlement",entityId:settlement.id,before:{status:advance.status},after:{amount:i.amount,status:next,expenseRecognizedOnce:true,custodyOffsetCollectorId:custodyCollectorId}}});
     },serializable);
   }catch(error){code=errorCode(error)}
   return back(eventId,code==="settlement_saved"?"notice":"error",code);

@@ -95,6 +95,9 @@ model User {
   eventRoles        EventRoleAssignment[] @relation("EventRoleUser")
   collectedTickets  Ticket[]              @relation("TicketCollector")
   receipts          CollectionReceipt[]   @relation("ReceiptCollector")
+  remittancesSent   Remittance[]          @relation("RemittanceSender")
+  remittancesReceived Remittance[]        @relation("RemittanceRecipient")
+  custodySettlements ExpenseSettlement[]  @relation("SettlementCustody")
   participant       Participant?
   sessions          Session[]
   accounts          Account[]
@@ -210,6 +213,8 @@ model Event {
   receipts            CollectionReceipt[]
   feeAdvances         FeeAdvance[]
   expenseAdvances     ExpenseAdvance[]
+  remittances         Remittance[]
+  storePayments       StorePayment[]
 
   @@index([eventDate, status])
   @@index([managerId])
@@ -224,6 +229,7 @@ model EventExpense {
   createdAt DateTime @default(now())
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   advance   ExpenseAdvance?
+  storePayment StorePayment?
 
   @@index([eventId])
 }
@@ -612,8 +618,75 @@ model ExpenseSettlement {
   method           String         @default("BANK_TRANSFER")
   note             String?
   createdBy        String
+  custodyCollectorId String?
   createdAt        DateTime       @default(now())
   expenseAdvance   ExpenseAdvance @relation(fields: [expenseAdvanceId], references: [id], onDelete: Restrict)
+  custodyCollector User?          @relation("SettlementCustody", fields: [custodyCollectorId], references: [id])
 
   @@index([expenseAdvanceId])
+}
+
+model Remittance {
+  id                   String    @id @default(cuid())
+  eventId              String
+  senderId             String
+  recipientId          String
+  amount               Int
+  method               String    @default("BANK_TRANSFER")
+  status               String    @default("PLANNED")
+  plannedAt            DateTime?
+  sentAt               DateTime?
+  receivedAt           DateTime?
+  receivedAmount       Int?
+  evidenceNote         String?
+  note                 String?
+  discrepancyNote      String?
+  cancelReason         String?
+  senderConfirmedAt    DateTime?
+  recipientConfirmedAt DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  event                Event     @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  sender               User      @relation("RemittanceSender", fields: [senderId], references: [id])
+  recipient            User      @relation("RemittanceRecipient", fields: [recipientId], references: [id])
+
+  @@index([eventId, status])
+  @@index([senderId])
+  @@index([recipientId])
+}
+
+model StorePayment {
+  id            String               @id @default(cuid())
+  eventId       String
+  expenseId     String               @unique
+  payee         String
+  description   String?
+  plannedAmount Int
+  plannedDate   DateTime?
+  createdBy     String
+  createdAt     DateTime             @default(now())
+  event         Event                @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  expense       EventExpense         @relation(fields: [expenseId], references: [id])
+  records       StorePaymentRecord[]
+
+  @@index([eventId])
+}
+
+model StorePaymentRecord {
+  id             String       @id @default(cuid())
+  storePaymentId String
+  amount         Int
+  paidAt         DateTime
+  method         String       @default("BANK_TRANSFER")
+  evidenceNote   String?
+  receiptNote    String?
+  status         String       @default("RECORDED")
+  voidedAt       DateTime?
+  voidedBy       String?
+  voidReason     String?
+  createdBy      String
+  createdAt      DateTime     @default(now())
+  storePayment   StorePayment @relation(fields: [storePaymentId], references: [id], onDelete: Restrict)
+
+  @@index([storePaymentId])
 }

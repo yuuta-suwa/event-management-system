@@ -27,3 +27,9 @@ export function notificationRules(event: { eventDate: Date; startTime: Date }, c
     { type: "EVENT_THREE_HOURS", label: `開始${beforeStartLabel(config.beforeStartNotificationMinutes)}通知`, scheduledAt: new Date(event.startTime.getTime() - config.beforeStartNotificationMinutes * 60000), enabled: config.beforeStartNotificationEnabled },
   ];
 }
+const timeSensitive=new Set(["EVENT_EVE","EVENT_DAY_OF","EVENT_THREE_HOURS"]);
+export function isStaleReminder(input:{type:string;scheduledAt:Date;eventStart:Date;now?:Date}){
+  if(!timeSensitive.has(input.type))return false;
+  const now=input.now??new Date();
+  return input.eventStart<=now||input.scheduledAt.getTime()<now.getTime()-12*60*60*1000;
+}

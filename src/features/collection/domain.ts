@@ -6,7 +6,7 @@ export function summarizeBilling(billed:number,receiptAmounts:number[]){
   const status:CollectionStatus=received<=0?"UNPAID":received<billed?"PARTIAL":received===billed?"PAID":"OVERPAID";
   return {billed,received,unpaid,status};
 }
-export function custodyBalance(input:{received:number;remitted?:number}){return input.received-(input.remitted??0)}
+export function custodyBalance(input:{received:number;remitted?:number;offsets?:number}){return input.received-(input.remitted??0)-(input.offsets??0)}
 export type FeeAdvanceStatus="OPEN"|"PARTIALLY_RECOVERED"|"RECOVERED"|"CANCELLED";
 export function feeAdvanceStatus(amount:number,recovered:number,cancelled=false):FeeAdvanceStatus{
   if(cancelled)return "CANCELLED";

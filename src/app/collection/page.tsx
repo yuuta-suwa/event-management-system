@@ -24,7 +24,7 @@ export default async function CollectionPage({searchParams}:{searchParams:Promis
     {q.notice&&<div className="success-banner">{notices[q.notice]??"保存しました。"}</div>}
     {q.error&&<div className="form-banner" role="alert">{errors[q.error]??"処理に失敗しました。"}</div>}
     {!view?<div className="empty-state"><Wallet/><h2>担当している集金イベントがありません</h2><p>イベント管理者に集金担当者として登録を依頼してください。</p></div>:<>
-      <p className="collection-links"><Link href={`/advances?event=${view.event.id}`}>立替・精算を管理する →</Link></p>
+      <p className="collection-links"><Link href={`/advances?event=${view.event.id}`}>立替・精算を管理する →</Link>{(view.access.collector||view.access.approver)&&<Link href={`/remittances?event=${view.event.id}`}>決裁権者への送金・受領照合 →</Link>}{view.access.approver&&<Link href={`/store-payments?event=${view.event.id}`}>店舗への支払い →</Link>}</p>
       <section className="payment-summary">
         <article><Banknote/><span>請求総額<strong>{yen(view.totals.billed)}</strong></span></article>
         <article><CircleDollarSign/><span>実入金額<strong>{yen(view.totals.received)}</strong></span></article>
@@ -53,8 +53,8 @@ export default async function CollectionPage({searchParams}:{searchParams:Promis
             {view.access.manager&&<td><form action={assignCollector.bind(null,view.event.id)} className="inline-form"><input type="hidden" name="target" value={g.key}/><select name="collectorId" defaultValue={g.collectorId??""}><option value="">未割当</option>{view.collectors.map(c=><option key={c.userId} value={c.userId}>{c.name}</option>)}</select><button className="line-unlink">変更</button></form></td>}</tr>)}</tbody></table>
           {view.groups.length===0&&<div className="empty-state"><Wallet/><h2>対象の購入がありません</h2></div>}</div></section>
       <section className="collection-section"><h2>担当者別の預り金</h2>
-        <div className="participant-table-wrap"><table className="participant-table"><thead><tr><th>集金担当者</th><th>入金合計</th><th>送金済み</th><th>預り金残高</th></tr></thead><tbody>{view.custody.map(c=><tr key={c.collectorId}><td>{c.name}</td><td>{yen(c.received)}</td><td>{yen(c.remitted)}</td><td><strong>{yen(c.balance)}</strong></td></tr>)}</tbody></table></div>
-        <p className="hint">預り金残高は「実入金額 − 決裁権者への送金済み額」です。立替金・未収金とは合算しません。</p></section>
+        <div className="participant-table-wrap"><table className="participant-table"><thead><tr><th>集金担当者</th><th>入金合計</th><th>送金済み</th><th>うち未照合</th><th>立替の相殺</th><th>預り金残高</th></tr></thead><tbody>{view.custody.map(c=><tr key={c.collectorId}><td>{c.name}</td><td>{yen(c.received)}</td><td>{yen(c.remitted)}</td><td>{yen(c.unreconciled)}</td><td>{yen(c.offsets)}</td><td><strong>{yen(c.balance)}</strong></td></tr>)}</tbody></table></div>
+        <p className="hint">預り金残高は「実入金額 − 決裁権者への送金済み額 − 預り金から支払った立替の相殺額」です。立替金・未収金とは合算しません。</p></section>
       <section className="collection-section"><h2>入金履歴</h2>
         <div className="participant-table-wrap"><table className="participant-table"><thead><tr><th>入金日</th><th>購入者</th><th>支払者</th><th>方法</th><th>金額</th><th>担当</th><th>状態</th></tr></thead>
           <tbody>{view.receipts.map(r=><tr key={r.id}><td>{r.receivedAt.toLocaleDateString("ja-JP",{timeZone:"Asia/Tokyo"})}</td><td>{r.targetLabel}</td><td>{r.payerName??"—"}{r.note&&<small>{r.note}</small>}</td><td>{receiptMethods[r.method]??r.method}</td><td>{yen(r.amount)}</td><td>{r.collectorName}</td>
