@@ -1,21 +1,18 @@
 import {notFound} from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import QRCode from "qrcode";
-import {CalendarDays,CheckCircle2,MapPin,MessageCircle,QrCode,ShieldCheck,TicketCheck,Users} from "lucide-react";
+import {CalendarDays,CheckCircle2,MapPin,MessageCircle,ShieldCheck,TicketCheck,Users} from "lucide-react";
 import {getMyRegistration} from "@/features/participants/my-registration";
 import {issueTicketToken,qrTokenSecret} from "@/features/tickets/token";
 import {MyDetailsForm,CancelRegistrationForm} from "@/features/participants/self-service-form";
 import {cancelMyRegistration} from "@/features/participants/self-service-actions";
-import {CopyApplyUrlButton} from "@/features/events/copy-apply-url-button";
+import {ShareLinkPanel} from "@/features/participants/share-link-panel";
 const attendanceLabel:Record<string,string>={APPLIED:"申込済",PAID:"入金済",EXPECTED:"参加予定",CHECKED_IN:"受付済",ABSENT:"欠席",CANCELLED:"キャンセル済み",WALK_IN:"当日参加"};
+const paymentLabel:Record<string,string>={PAID:"入金済",PENDING:"入金確認中",UNPAID:"未入金",CANCELLED:"キャンセル",REFUNDED:"返金済"};
 const attendanceBadgeClass:Record<string,string>={APPLIED:"status-published",PAID:"status-published",EXPECTED:"status-published",CHECKED_IN:"status-published",WALK_IN:"status-published",ABSENT:"status-cancelled",CANCELLED:"status-cancelled"};
 export default async function MyRegistrationPage({params,searchParams}:{params:Promise<{token:string}>;searchParams:Promise<{notice?:string}>}){
   const [{token},{notice}]=await Promise.all([params,searchParams]);
   const data=await getMyRegistration(token);
   if(!data)notFound();
-  const origin=process.env.NEXT_PUBLIC_APP_URL??"http://127.0.0.1:3000";
-  const claimLinks=data.order?await Promise.all(data.order.claimTokens.map(async t=>{const url=`${origin}/claim/${t.token}`;return {url,ticketNumber:t.ticketNumber,qr:await QRCode.toDataURL(url,{width:140,margin:1,color:{dark:"#17312f",light:"#ffffff"}})}})):[];
   const locked=data.attendanceStatus==="CANCELLED"||data.ticket?.checkedIn;
   const ticketReady=data.ticket&&["ACTIVE","USED"].includes(data.ticket.status);
   return <main className="public-shell">
@@ -44,13 +41,15 @@ export default async function MyRegistrationPage({params,searchParams}:{params:P
             {process.env.NEXT_PUBLIC_LINE_BASIC_ID&&<a className="demo-ticket-link" href={`https://line.me/R/ti/p/%40${process.env.NEXT_PUBLIC_LINE_BASIC_ID}`} target="_blank" rel="noreferrer"><MessageCircle size={16}/>友だち追加する</a>}
           </>}
         </div>
-        {data.order&&data.order.quantity>1&&<div className="line-link-panel">
-          <p className="line-link-title"><Users size={16}/> 複数枚購入（{data.order.claimedCount}/{data.order.quantity}枚 配布済み）</p>
-          {claimLinks.length>0?<>
-            <p>残り{claimLinks.length}枚を、招待したい方お一人ずつに別々のリンクでお送りください。</p>
-            {claimLinks.map(l=><div className="referral-box" key={l.url}><Image src={l.qr} alt="チケット受け取りQR" width={96} height={96}/><div><span><QrCode size={16}/>チケットNo. {l.ticketNumber}（未配布）</span><code>{l.url}</code><CopyApplyUrlButton text={l.url}/></div></div>)}
-          </>:<p>すべて配布済みです。</p>}
-          {data.order.distributed.length>0&&<><p className="line-link-title">配布済みの内訳</p><ul>{data.order.distributed.map(d=><li key={d.ticketNumber}><code>{d.ticketNumber}</code> → {d.recipientName} さん</li>)}</ul></>}
+        {data.tickets.length>0&&<div className="line-link-panel">
+          <p className="line-link-title"><Users size={16}/> チケット{data.order?`（${data.order.quantity}枚購入・${data.order.claimedCount}枚登録済み）`:""}</p>
+          <ul className="ticket-list">{data.tickets.map(t=><li key={t.id}>
+            <div className="ticket-list-head"><code>{t.ticketNumber}</code><span className="status-badge status-published">{t.checkedIn?"受付済み":t.holderName===null?"未配布":t.isMine?"自分が保有":"配布済み"}</span></div>
+            <dl><dt>現在の保有者</dt><dd>{t.holderName===null?"未配布（受け取り待ち）":t.isMine?`${t.holderName}（あなた）`:`${t.holderName} さん`}</dd><dt>支払</dt><dd>{paymentLabel[t.paymentStatus]}</dd><dt>QR</dt><dd>{t.holderName===null?"受取人の登録後に発行":["ACTIVE","USED"].includes(t.status)?"発行済み":"入金確認後に有効"}</dd></dl>
+            {t.history.length>0&&<ul className="ticket-history">{t.history.map((h,i)=><li key={i}>{h.at.toLocaleDateString("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric"})} {h.from} → {h.to}（{h.source==="DISTRIBUTION"?"配布":h.source==="HOLDER"?"本人による譲渡":"管理者による変更"}）</li>)}</ul>}
+            {t.canShare&&(t.isMine||t.holderName===null)&&<ShareLinkPanel token={token} ticketId={t.id} ticketNumber={t.ticketNumber} label={t.holderName===null?"配布リンクを発行":"このチケットを譲渡する"}/>}
+          </li>)}</ul>
+          <p className="hint">リンクは7日間有効で、受け取りが確定すると使えなくなります。他の人に渡したチケットを購入者が勝手に再譲渡することはできません。</p>
         </div>}
       </aside>
       <section className="application-form-card">

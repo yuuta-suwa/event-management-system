@@ -294,6 +294,7 @@ model Ticket {
   qrTokenHash       String             @unique
   qrTokenVersion    Int                @default(1)
   claimed           Boolean            @default(true)
+  shareVersion      Int                @default(0)
   status            TicketStatus       @default(PROVISIONAL)
   paymentStatus     PaymentStatus      @default(UNPAID)
   issuedAt          DateTime?
@@ -356,14 +357,15 @@ model TicketTransfer {
   ticketId         String
   oldParticipantId String
   newParticipantId String
-  transferredBy    String
+  transferredBy    String?
+  source           String      @default("ADMIN")
   reason           String
   oldQrTokenHash   String
   createdAt        DateTime    @default(now())
   ticket           Ticket      @relation(fields: [ticketId], references: [id])
   oldParticipant   Participant @relation("OldParticipant", fields: [oldParticipantId], references: [id])
   newParticipant   Participant @relation("NewParticipant", fields: [newParticipantId], references: [id])
-  operator         User        @relation("TransferOperator", fields: [transferredBy], references: [id])
+  operator         User?       @relation("TransferOperator", fields: [transferredBy], references: [id])
 }
 
 model NotificationJob {
