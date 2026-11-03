@@ -142,6 +142,7 @@ model Participant {
   notifications     NotificationLog[]
   incomingTransfers TicketTransfer[]    @relation("NewParticipant")
   outgoingTransfers TicketTransfer[]    @relation("OldParticipant")
+  lineFriend        LineFriend?
 
   @@index([email])
   @@index([phone])
@@ -456,4 +457,26 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model LineFriend {
+  id            String       @id @default(cuid())
+  lineUserId    String       @unique
+  displayName   String?
+  status        String       @default("FOLLOWING")
+  matchStatus   String       @default("PENDING")
+  participantId String?      @unique
+  followedAt    DateTime     @default(now())
+  unfollowedAt  DateTime?
+  matchedAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  participant   Participant? @relation(fields: [participantId], references: [id], onDelete: SetNull)
+
+  @@index([matchStatus, status])
+}
+
+model LineWebhookEvent {
+  id         String   @id
+  receivedAt DateTime @default(now())
 }
