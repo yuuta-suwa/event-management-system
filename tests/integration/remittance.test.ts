@@ -132,4 +132,43 @@ describe.skipIf(!enabled)("送金・受領照合・店舗支払（実DB・使い
     expect((await call(()=>store.createStorePayment(eventId,form({payee:"文具店",expenseId:fromAdvance})))).code).toBe("advance_expense");
     expect((await data.getStorePaymentView(u.ap,eventId))!.linkableExpenses.some(e=>e.id===fromAdvance||e.id===own.id)).toBe(false);
   });
+
+  it("誤登録した店舗支払予定は、訂正・取消ができる（物理削除せず、経費は1回だけ・取消で集計から除外）",async()=>{
+    const activeSum=async()=>(await db.eventExpense.aggregate({where:{eventId,voidedAt:null},_sum:{amount:true}}))._sum.amount??0;
+    const base=await activeSum();
+    as("ap");expect((await call(()=>store.createStorePayment(eventId,form({payee:"誤登録店",plannedAmount:8000})))).code).toBe("store_created");
+    const sp=await db.storePayment.findFirstOrThrow({where:{eventId,payee:"誤登録店"}});
+    expect(await activeSum()).toBe(base+8000);
+    for(const k of ["c1","mgr","admin","x"]){as(k);expect(await denied(()=>store.correctStorePayment(eventId,form({id:sp.id,payee:"x",plannedAmount:1,reason:"権限なし"})))).toBe(true);expect(await denied(()=>store.cancelStorePayment(eventId,form({id:sp.id,reason:"権限なし"})))).toBe(true)}
+    as("ap");expect((await call(()=>store.correctStorePayment(eventId,form({id:sp.id,payee:"正しい店",description:"会場費",plannedAmount:9000,reason:"金額と店名の入力ミス"})))).code).toBe("store_corrected");
+    expect(await db.storePayment.findUniqueOrThrow({where:{id:sp.id}})).toMatchObject({payee:"正しい店",plannedAmount:9000});
+    expect(await activeSum()).toBe(base+9000);// 経費は差し替えで、二重計上されない
+    expect(await db.eventExpense.count({where:{id:sp.expenseId}})).toBe(1);
+    const fix=await db.auditLog.findFirstOrThrow({where:{action:"STORE_PAYMENT_CORRECTED",entityId:sp.id}});
+    expect(fix.before).toMatchObject({payee:"誤登録店",plannedAmount:8000});expect(fix.after).toMatchObject({payee:"正しい店",plannedAmount:9000});
+    // 支払済みがある間は、支払済み未満への訂正も取消もできない
+    expect((await call(()=>store.recordStorePayment(eventId,form({id:sp.id,amount:3000,paidAt:today,method:"CASH"})))).code).toBe("store_paid");
+    expect((await call(()=>store.correctStorePayment(eventId,form({id:sp.id,payee:"正しい店",plannedAmount:2000,reason:"減額テスト"})))).code).toBe("below_paid");
+    expect((await call(()=>store.cancelStorePayment(eventId,form({id:sp.id,reason:"誤登録のため"})))).code).toBe("has_payments");
+    const rec=await db.storePaymentRecord.findFirstOrThrow({where:{storePaymentId:sp.id}});
+    expect((await call(()=>store.voidStorePaymentRecord(eventId,form({recordId:rec.id,reason:"誤入力の取消"})))).code).toBe("store_voided");
+    expect((await call(()=>store.cancelStorePayment(eventId,form({id:sp.id,reason:"誤登録のため"})))).code).toBe("store_cancelled");
+    expect(await db.storePayment.findUniqueOrThrow({where:{id:sp.id}})).toMatchObject({status:"CANCELLED",cancelledBy:u.ap.id});
+    expect((await db.eventExpense.findUniqueOrThrow({where:{id:sp.expenseId}})).voidedAt).not.toBeNull();// 物理削除ではなく無効化
+    expect(await activeSum()).toBe(base);
+    expect((await data.getStorePaymentView(u.ap,eventId))!.rows.find(r=>r.id===sp.id)).toMatchObject({cancelled:true});
+    expect((await call(()=>store.cancelStorePayment(eventId,form({id:sp.id,reason:"二重取消"})))).code).toBe("already_cancelled");
+    expect((await call(()=>store.recordStorePayment(eventId,form({id:sp.id,amount:1000,paidAt:today,method:"CASH"})))).code).toBe("plan_cancelled");
+    expect((await call(()=>store.correctStorePayment(eventId,form({id:sp.id,payee:"x",plannedAmount:9000,reason:"取消後の訂正"})))).code).toBe("plan_cancelled");
+    expect(await db.auditLog.count({where:{action:"STORE_PAYMENT_CANCELLED",entityId:sp.id}})).toBe(1);
+  });
+  it("既存の経費に紐づけた予定は金額を変えられず、取消しても経費そのものは無効化されない",async()=>{
+    const own=await db.eventExpense.create({data:{eventId,label:"壁紙代",amount:12000}});
+    as("ap");expect((await call(()=>store.createStorePayment(eventId,form({payee:"内装店",expenseId:own.id})))).code).toBe("store_created");
+    const sp=await db.storePayment.findUniqueOrThrow({where:{expenseId:own.id}});
+    expect((await call(()=>store.correctStorePayment(eventId,form({id:sp.id,payee:"内装店",plannedAmount:5000,reason:"金額変更の試み"})))).code).toBe("amount_linked");
+    expect((await call(()=>store.correctStorePayment(eventId,form({id:sp.id,payee:"内装工房",plannedAmount:12000,reason:"店名の訂正"})))).code).toBe("store_corrected");
+    expect((await call(()=>store.cancelStorePayment(eventId,form({id:sp.id,reason:"別の予定で管理するため"})))).code).toBe("store_cancelled");
+    expect((await db.eventExpense.findUniqueOrThrow({where:{id:own.id}})).voidedAt).toBeNull();
+  });
 });

@@ -72,14 +72,14 @@ export async function getRemittanceView(user:{id:string;role:string},eventId:str
   const sum=(statuses:string[])=>remittances.filter(r=>statuses.includes(r.status)).reduce((n,r)=>n+r.amount,0);
   return {event:{id:event.id,name:event.name},access,custody:asSender?await collectorCustody(db,eventId,user.id):null,recipients:asSender?(await eligibleRecipients(db,eventId)).filter(r=>r.id!==user.id):[],remittances,totals:{reconciled:sum(["RECEIVED"]),unreconciled:sum(["SENT_REPORTED","DISCREPANCY"]),planned:sum(["PLANNED"])}};
 }
-export type StorePaymentRow={id:string;payee:string;description:string|null;plannedAmount:number;plannedDate:Date|null;paid:number;unpaid:number;status:StorePaymentStatus;records:{id:string;amount:number;paidAt:Date;method:string;evidenceNote:string|null;receiptNote:string|null;status:string;voidReason:string|null}[]};
+export type StorePaymentRow={id:string;payee:string;description:string|null;plannedAmount:number;plannedDate:Date|null;paid:number;unpaid:number;status:StorePaymentStatus;cancelled:boolean;cancelReason:string|null;records:{id:string;amount:number;paidAt:Date;method:string;evidenceNote:string|null;receiptNote:string|null;status:string;voidReason:string|null}[]};
 export type StorePaymentView={event:{id:string;name:string};rows:StorePaymentRow[];linkableExpenses:{id:string;label:string;amount:number}[];totals:{planned:number;paid:number;unpaid:number}};
 export async function getStorePaymentView(user:{id:string;role:string},eventId:string):Promise<StorePaymentView|null>{
   if(isLocalDemo())return null;
   const ctx=await loadEventAccess(user,eventId);
   if(!ctx||!ctx.access.approver)return null;
   const payments=await db.storePayment.findMany({where:{eventId},include:{records:{orderBy:{paidAt:"asc"}}},orderBy:{createdAt:"desc"}});
-  const rows:StorePaymentRow[]=payments.map(p=>{const paid=p.records.filter(r=>r.status==="RECORDED").reduce((n,r)=>n+r.amount,0);return {id:p.id,payee:p.payee,description:p.description,plannedAmount:p.plannedAmount,plannedDate:p.plannedDate,paid,unpaid:storeUnpaid(p.plannedAmount,paid),status:storePaymentStatus(p.plannedAmount,paid),records:p.records.map(r=>({id:r.id,amount:r.amount,paidAt:r.paidAt,method:r.method,evidenceNote:r.evidenceNote,receiptNote:r.receiptNote,status:r.status,voidReason:r.voidReason}))}});
-  const linkable=await db.eventExpense.findMany({where:{eventId,advance:null,storePayment:null},orderBy:{createdAt:"desc"},select:{id:true,label:true,amount:true}});
-  return {event:{id:ctx.event.id,name:ctx.event.name},rows,linkableExpenses:linkable,totals:{planned:rows.reduce((n,r)=>n+r.plannedAmount,0),paid:rows.reduce((n,r)=>n+r.paid,0),unpaid:rows.reduce((n,r)=>n+r.unpaid,0)}};
+  const rows:StorePaymentRow[]=payments.map(p=>{const paid=p.records.filter(r=>r.status==="RECORDED").reduce((n,r)=>n+r.amount,0);return {id:p.id,payee:p.payee,description:p.description,plannedAmount:p.plannedAmount,plannedDate:p.plannedDate,paid,unpaid:storeUnpaid(p.plannedAmount,paid),status:storePaymentStatus(p.plannedAmount,paid),cancelled:p.status==="CANCELLED",cancelReason:p.cancelReason,records:p.records.map(r=>({id:r.id,amount:r.amount,paidAt:r.paidAt,method:r.method,evidenceNote:r.evidenceNote,receiptNote:r.receiptNote,status:r.status,voidReason:r.voidReason}))}});
+  const linkable=await db.eventExpense.findMany({where:{eventId,advance:null,storePayment:null,voidedAt:null},orderBy:{createdAt:"desc"},select:{id:true,label:true,amount:true}});
+  return {event:{id:ctx.event.id,name:ctx.event.name},rows,linkableExpenses:linkable,totals:{planned:rows.filter(r=>!r.cancelled).reduce((n,r)=>n+r.plannedAmount,0),paid:rows.filter(r=>!r.cancelled).reduce((n,r)=>n+r.paid,0),unpaid:rows.filter(r=>!r.cancelled).reduce((n,r)=>n+r.unpaid,0)}};
 }

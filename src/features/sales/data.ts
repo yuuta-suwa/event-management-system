@@ -9,7 +9,7 @@ export async function salesData(year:number){
     ];
     return assemble(year,events);
   }
-  const rows=await db.event.findMany({where:{eventDate:{gte:new Date(`${year}-01-01T00:00:00+09:00`),lt:new Date(`${year+1}-01-01T00:00:00+09:00`)}},include:{tickets:{include:{payments:{orderBy:{createdAt:"desc"},take:1}}},expenses:true},orderBy:{eventDate:"asc"}});
+  const rows=await db.event.findMany({where:{eventDate:{gte:new Date(`${year}-01-01T00:00:00+09:00`),lt:new Date(`${year+1}-01-01T00:00:00+09:00`)}},include:{tickets:{include:{payments:{orderBy:{createdAt:"desc"},take:1}}},expenses:{where:{voidedAt:null}}},orderBy:{eventDate:"asc"}});
   const events=rows.map(e=>{
     const s=summarizeSales(e.tickets.map(t=>({paymentStatus:t.paymentStatus,amount:t.payments[0]?.amount??e.price})));
     const expense=sumExpenses(e.expenses);

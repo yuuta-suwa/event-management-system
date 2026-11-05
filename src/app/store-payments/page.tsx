@@ -2,15 +2,15 @@ import Link from "next/link";
 import {Banknote,ReceiptText,Wallet} from "lucide-react";
 import {AppHeader} from "@/components/app-header";
 import {listAccessibleEvents} from "@/features/collection/access";
-import {createStorePayment,recordStorePayment,voidStorePaymentRecord} from "@/features/collection/store-actions";
+import {cancelStorePayment,correctStorePayment,createStorePayment,recordStorePayment,voidStorePaymentRecord} from "@/features/collection/store-actions";
 import {getStorePaymentView} from "@/features/collection/data";
 import {receiptMethods} from "@/features/collection/domain";
 import {storePaymentLabel} from "@/features/collection/remittance-domain";
 import {requireUser} from "@/server/authz";
 const yen=(n:number)=>`¥${n.toLocaleString("ja-JP")}`;
 const date=(d:Date|null)=>d?d.toLocaleDateString("ja-JP",{timeZone:"Asia/Tokyo"}):"—";
-const notices:Record<string,string>={store_created:"支払先を登録しました。",store_paid:"支払を記録しました。",store_voided:"支払の記録を取り消しました。",demo:"ローカルデモでは保存されません。"};
-const errors:Record<string,string>={invalid:"入力内容を確認してください。",forbidden:"この操作は決裁権者のみ可能です。",not_found:"対象が見つかりません。",expense_unavailable:"その経費はすでに店舗支払に紐づいているか、存在しません。",advance_expense:"立替の精算から計上された経費は、店舗支払に紐づけできません（二重計上の防止）。",exceeds_balance:"未払残高を超える金額は登録できません。",already_voided:"すでに取り消し済みです。",conflict:"他の操作と競合しました。もう一度お試しください。"};
+const notices:Record<string,string>={store_created:"支払先を登録しました。",store_paid:"支払を記録しました。",store_voided:"支払の記録を取り消しました。",store_cancelled:"支払予定を取り消しました。",store_corrected:"支払予定を訂正しました。",demo:"ローカルデモでは保存されません。"};
+const errors:Record<string,string>={invalid:"入力内容を確認してください。",forbidden:"この操作は決裁権者のみ可能です。",not_found:"対象が見つかりません。",expense_unavailable:"その経費はすでに店舗支払に紐づいているか、存在しません。",advance_expense:"立替の精算から計上された経費は、店舗支払に紐づけできません（二重計上の防止）。",exceeds_balance:"未払残高を超える金額は登録できません。",already_voided:"すでに取り消し済みです。",already_cancelled:"すでに取り消し済みです。",has_payments:"支払の記録が残っています。先に支払の記録を取り消してください。",below_paid:"支払済みの金額より小さい予定額にはできません。",amount_linked:"既存の経費に紐づいた予定の金額は変更できません（経費側と一致させるため）。",plan_cancelled:"取り消し済みの支払予定です。",conflict:"他の操作と競合しました。もう一度お試しください。"};
 export default async function StorePaymentsPage({searchParams}:{searchParams:Promise<{event?:string;notice?:string;error?:string}>}){
   const user=await requireUser(["SUPER_ADMIN","EVENT_MANAGER","RECEPTION_STAFF"]);
   const q=await searchParams;
@@ -42,10 +42,15 @@ export default async function StorePaymentsPage({searchParams}:{searchParams:Pro
         <p className="hint">経費の「発生」と実際の「支払」は別に管理します。経費は登録時に1回だけ計上され、支払の記録では再計上しません。既存の経費を選んだ場合は金額が自動で入ります。</p></section>
       <section className="collection-section"><h2>支払の状況</h2>
         {view.rows.map(p=><article className="advance-card" key={p.id}>
-          <header><strong>{p.payee}{p.description&&`（${p.description}）`}</strong><span className={`payment-chip payment-${p.status==="PAID"?"paid":p.status==="PARTIALLY_PAID"?"pending":"unpaid"}`}>{storePaymentLabel[p.status]}</span></header>
+          <header><strong>{p.payee}{p.description&&`（${p.description}）`}</strong>{p.cancelled?<span className="payment-chip payment-cancelled">取消済</span>:<span className={`payment-chip payment-${p.status==="PAID"?"paid":p.status==="PARTIALLY_PAID"?"pending":"unpaid"}`}>{storePaymentLabel[p.status]}</span>}</header>
           <dl><dt>支払予定額</dt><dd>{yen(p.plannedAmount)}（予定日 {date(p.plannedDate)}）</dd><dt>支払済み</dt><dd>{yen(p.paid)}</dd><dt>未払残高</dt><dd><strong>{yen(p.unpaid)}</strong></dd></dl>
           {p.records.map(r=><div key={r.id} className="inline-form"><small>{date(r.paidAt)}　{yen(r.amount)}（{receiptMethods[r.method]??r.method}）{r.evidenceNote&&`／証憑：${r.evidenceNote}`}{r.receiptNote&&`／領収書：${r.receiptNote}`}</small>{r.status==="VOIDED"?<span className="payment-chip payment-cancelled">取消済 {r.voidReason}</span>:<form action={voidStorePaymentRecord.bind(null,view.event.id)} className="inline-form"><input type="hidden" name="recordId" value={r.id}/><input name="reason" placeholder="取消理由" required minLength={3} maxLength={300}/><button className="line-unlink">取消</button></form>}</div>)}
-          {p.unpaid>0&&<form action={recordStorePayment.bind(null,view.event.id)} className="inline-form"><input type="hidden" name="id" value={p.id}/><input name="amount" type="number" min="1" max={p.unpaid} placeholder="支払額" required/><input name="paidAt" type="date" defaultValue={today} required/><select name="method" defaultValue="BANK_TRANSFER">{Object.entries(receiptMethods).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><input name="evidenceNote" placeholder="振込証憑メモ" maxLength={300}/><input name="receiptNote" placeholder="領収書メモ" maxLength={300}/><button>支払を記録</button></form>}
+          {p.cancelled&&<p className="hint">取消理由：{p.cancelReason}（この予定の経費・未払いは集計から除外されています）</p>}
+          {!p.cancelled&&p.unpaid>0&&<form action={recordStorePayment.bind(null,view.event.id)} className="inline-form"><input type="hidden" name="id" value={p.id}/><input name="amount" type="number" min="1" max={p.unpaid} placeholder="支払額" required/><input name="paidAt" type="date" defaultValue={today} required/><select name="method" defaultValue="BANK_TRANSFER">{Object.entries(receiptMethods).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><input name="evidenceNote" placeholder="振込証憑メモ" maxLength={300}/><input name="receiptNote" placeholder="領収書メモ" maxLength={300}/><button>支払を記録</button></form>}
+          {!p.cancelled&&<details className="plan-edit"><summary>訂正・取消</summary>
+            <form action={correctStorePayment.bind(null,view.event.id)} className="inline-form"><input type="hidden" name="id" value={p.id}/><input name="payee" defaultValue={p.payee} required maxLength={120}/><input name="description" defaultValue={p.description??""} placeholder="内容" maxLength={200}/><input name="plannedAmount" type="number" min="1" defaultValue={p.plannedAmount} required/><input name="plannedDate" type="date" defaultValue={p.plannedDate?p.plannedDate.toLocaleDateString("sv-SE",{timeZone:"Asia/Tokyo"}):""}/><input name="reason" placeholder="訂正理由" required minLength={3} maxLength={300}/><button>訂正する</button></form>
+            <form action={cancelStorePayment.bind(null,view.event.id)} className="inline-form"><input type="hidden" name="id" value={p.id}/><input name="reason" placeholder="取消理由（誤登録など）" required minLength={3} maxLength={300}/><button className="line-unlink">この予定を取り消す</button></form>
+          </details>}
         </article>)}
         {view.rows.length===0&&<div className="empty-state"><ReceiptText/><h2>支払先の登録はありません</h2></div>}
       </section></>}

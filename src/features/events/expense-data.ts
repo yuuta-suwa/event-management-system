@@ -7,5 +7,5 @@ const demo:ExpenseRow[]=[
 ];
 export async function listExpenses(eventId:string):Promise<ExpenseRow[]>{
   if(isLocalDemo())return demo;
-  return db.eventExpense.findMany({where:{eventId},orderBy:{createdAt:"desc"}});
+  return db.eventExpense.findMany({where:{eventId,voidedAt:null},orderBy:{createdAt:"desc"}});
 }
