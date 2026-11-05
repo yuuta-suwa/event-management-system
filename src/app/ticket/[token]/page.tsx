@@ -12,8 +12,8 @@ export default async function TicketPage({params}:{params:Promise<{token:string}
   <header className="ticket-brand"><span>EVENT MANAGEMENT SYSTEM</span><span className="ticket-paid"><CheckCircle2/>入金済</span></header>
   <section className="ticket-title-block"><p className="eyebrow">EVENT TICKET</p><h1>{ticket.eventName}</h1></section>
   <div className="ticket-info-bar">
-    <div><CalendarDays/><span>{ticket.eventDate.toLocaleDateString("ja-JP",{month:"long",day:"numeric",weekday:"short"})}</span></div>
-    <div><Clock/><span>{ticket.startTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}<small>受付{ticket.receptionStartTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}</small></span></div>
+    <div><CalendarDays/><span>{ticket.eventDate.toLocaleDateString("ja-JP",{timeZone:"Asia/Tokyo",month:"long",day:"numeric",weekday:"short"})}</span></div>
+    <div><Clock/><span>{ticket.startTime.toLocaleTimeString("ja-JP",{timeZone:"Asia/Tokyo",hour:"2-digit",minute:"2-digit"})}<small>受付{ticket.receptionStartTime.toLocaleTimeString("ja-JP",{timeZone:"Asia/Tokyo",hour:"2-digit",minute:"2-digit"})}</small></span></div>
     <div><MapPin/><span>{ticket.venueName}<small>{ticket.address}</small></span></div>
   </div>
   <section className="ticket-stub">
@@ -28,7 +28,7 @@ export default async function TicketPage({params}:{params:Promise<{token:string}
     </div>
   </section>
   <details className="ticket-detail"><summary><Info/>イベント詳細を見る</summary><dl>
-    <div><dt>日時</dt><dd>{ticket.eventDate.toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"})} {ticket.startTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}〜{ticket.endTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}（受付 {ticket.receptionStartTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}）</dd></div>
+    <div><dt>日時</dt><dd>{ticket.eventDate.toLocaleDateString("ja-JP",{timeZone:"Asia/Tokyo",year:"numeric",month:"long",day:"numeric",weekday:"short"})} {ticket.startTime.toLocaleTimeString("ja-JP",{timeZone:"Asia/Tokyo",hour:"2-digit",minute:"2-digit"})}〜{ticket.endTime.toLocaleTimeString("ja-JP",{timeZone:"Asia/Tokyo",hour:"2-digit",minute:"2-digit"})}（受付 {ticket.receptionStartTime.toLocaleTimeString("ja-JP",{timeZone:"Asia/Tokyo",hour:"2-digit",minute:"2-digit"})}）</dd></div>
     <div><dt>会場</dt><dd>{ticket.venueName}<br/>{ticket.address}</dd></div>
     <div><dt>主催者</dt><dd>{ticket.organizer}</dd></div>
     <div><dt>イベント内容</dt><dd className="ticket-detail-text">{ticket.description}</dd></div>

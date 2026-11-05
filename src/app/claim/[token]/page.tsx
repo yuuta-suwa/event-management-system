@@ -15,7 +15,7 @@ export default async function ClaimPage({params}:{params:Promise<{token:string}>
         {info.status==="ok"?<>
           <h1>{info.eventName}</h1>
           <div className="public-event-info">
-            <p><CalendarDays/>{info.eventDate.toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"})}<small>{info.startTime.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}〜</small></p>
+            <p><CalendarDays/>{info.eventDate.toLocaleDateString("ja-JP",{timeZone:"Asia/Tokyo",year:"numeric",month:"long",day:"numeric",weekday:"short"})}<small>{info.startTime.toLocaleTimeString("ja-JP",{timeZone:"Asia/Tokyo",hour:"2-digit",minute:"2-digit"})}〜</small></p>
             <p><MapPin/>{info.venueName}<small>{info.address}</small></p>
           </div>
           <div className="price-panel"><span>参加費</span><strong>¥{info.price.toLocaleString("ja-JP")}</strong></div>

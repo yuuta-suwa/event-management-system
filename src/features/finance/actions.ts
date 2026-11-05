@@ -16,7 +16,7 @@ export async function exportFinanceToSheets(_:{message?:string},formData:FormDat
     [],
     ["イベント別収支"],
     ["イベント名","開催日","収入","支出","収支"],
-    ...data.events.map(e=>[e.name,e.date.toLocaleDateString("ja-JP"),e.revenue,e.expense,e.profit]),
+    ...data.events.map(e=>[e.name,e.date.toLocaleDateString("ja-JP",{timeZone:"Asia/Tokyo"}),e.revenue,e.expense,e.profit]),
   ];
   try{
     await writeFinanceSheet(rows);
