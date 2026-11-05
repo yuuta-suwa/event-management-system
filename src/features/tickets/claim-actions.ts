@@ -4,6 +4,7 @@ import {z} from "zod";
 import {db} from "@/server/db";
 import {isLocalDemo} from "@/server/authz";
 import {queueParticipantNotification} from "@/features/notifications/service";
+import {kickEmailDelivery,queueTicketEmail} from "@/features/email/service";
 import {issueRegistrationToken} from "@/features/participants/registration-token";
 import {generateLineLinkCode} from "@/features/participants/line-link-code";
 import {nextQrVersion} from "@/features/transfers/domain";
@@ -49,6 +50,7 @@ export async function claimTicket(_:ClaimState,formData:FormData):Promise<ClaimS
         if(ticket.paymentStatus==="PAID")await queueParticipantNotification(tx,ticket.eventId,participant.id,"TICKET");
         else await queueParticipantNotification(tx,ticket.eventId,participant.id,"PAYMENT_REMINDER",new Date(Date.now()+3*24*60*60*1000));
       }
+      await queueTicketEmail(tx,{kind:"TRANSFER_RECEIVED",ticketId:ticket.id});
       await tx.auditLog.create({data:{action:transfer?"TICKET_TRANSFERRED_BY_HOLDER":"TICKET_CLAIMED",entityType:"TicketTransfer",entityId:record.id,before:{participantId:fromParticipantId,qrTokenVersion:ticket.qrTokenVersion},after:{participantId:participant.id,qrTokenVersion:version,ticketNumber:ticket.ticketNumber,orderId:ticket.orderId,paymentStatus:ticket.paymentStatus}}});
       return issueRegistrationToken(registrationId,secret);
     });
@@ -61,5 +63,6 @@ export async function claimTicket(_:ClaimState,formData:FormData):Promise<ClaimS
     if(code==="TICKET_UNAVAILABLE"||code==="INVALID_TICKET")return {message:"このチケットは現在受け取れません。"};
     throw error;
   }
+  kickEmailDelivery();
   redirect(`/my/${myToken}?notice=claimed`);
 }

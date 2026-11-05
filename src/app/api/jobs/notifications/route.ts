@@ -1,6 +1,7 @@
 import {timingSafeEqual} from "node:crypto";
 import {NextResponse} from "next/server";
 import {createReminderJobs,processDueNotificationJobs} from "@/features/notifications/service";
+import {deliverPendingEmails} from "@/features/email/service";
 import {isLocalDemo} from "@/server/authz";
 export const dynamic="force-dynamic";
 function bearerMatches(header:string|null,secret:string|undefined){
@@ -19,7 +20,8 @@ async function run(request:Request){
   if(isLocalDemo())return NextResponse.json({scheduled:0,processed:0,sent:0,failed:0,demo:true});
   const scheduled=await createReminderJobs();
   const result=await processDueNotificationJobs();
-  return NextResponse.json({scheduled,...result},{headers:{"Cache-Control":"no-store"}});
+  const email=await deliverPendingEmails(50);// 未送信・再試行待ちのメール
+  return NextResponse.json({scheduled,...result,email},{headers:{"Cache-Control":"no-store"}});
 }
 export const POST=run;
 // Vercel Cron は GET で呼び出す。認証(Bearer)は POST と同一で、未認証は 401。

@@ -56,7 +56,7 @@ CREATE TABLE "EmailLog" (
     "provider" TEXT,
     "providerMessageId" TEXT,
     "errorMessage" TEXT,
-    "attempt" INTEGER NOT NULL DEFAULT 1,
+    "attempt" INTEGER NOT NULL DEFAULT 0,
     "dedupeKey" TEXT,
     "triggeredBy" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

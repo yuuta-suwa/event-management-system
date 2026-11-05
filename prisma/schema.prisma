@@ -728,7 +728,7 @@ model EmailLog {
   provider          String?
   providerMessageId String?
   errorMessage      String?
-  attempt           Int         @default(1)
+  attempt           Int         @default(0)
   dedupeKey         String?     @unique
   triggeredBy       String?
   createdAt         DateTime    @default(now())

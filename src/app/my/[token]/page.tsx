@@ -7,6 +7,7 @@ import {MyDetailsForm,CancelRegistrationForm} from "@/features/participants/self
 import {cancelMyRegistration} from "@/features/participants/self-service-actions";
 import {ensureReceptionCode,formatReceptionCode} from "@/features/checkins/reception-code";
 import {isLocalDemo} from "@/server/authz";
+import {resendMyTicketEmail} from "@/features/participants/email-self-actions";
 import {LineLinkPanel} from "@/features/participants/line-link-panel";
 import {ShareLinkPanel} from "@/features/participants/share-link-panel";
 const attendanceLabel:Record<string,string>={APPLIED:"申込済",PAID:"入金済",EXPECTED:"参加予定",CHECKED_IN:"受付済",ABSENT:"欠席",CANCELLED:"キャンセル済み",WALK_IN:"当日参加"};
@@ -33,6 +34,7 @@ export default async function MyRegistrationPage({params,searchParams}:{params:P
         {data.ticket&&<div className="introducer">チケットNo. <code>{data.ticket.ticketNumber}</code>{data.purchasedBy&&<><br/>購入者：{data.purchasedBy} さん</>}</div>}
         <div className="price-panel"><span>参加費</span><strong>¥{data.event.price.toLocaleString("ja-JP")}</strong></div>
         {ticketReady&&<Link className="demo-ticket-link" href={`/ticket/${issueTicketToken(data.ticket!.id,data.ticket!.version,qrTokenSecret())}`}><TicketCheck/>電子チケット（QR）を見る</Link>}
+        {ticketReady&&data.ticket!.status==="ACTIVE"&&<form action={resendMyTicketEmail}><input type="hidden" name="token" value={token}/><button className="line-unlink">チケットを登録メールアドレスへ再送する</button></form>}
         {receptionCode&&<div className="reception-code"><span>受付コード（QRが使えないときに受付で伝えてください）</span><strong>{formatReceptionCode(receptionCode)}</strong></div>}
         <LineLinkPanel token={token} participant={data.participant}/>
         {data.tickets.length>0&&<div className="line-link-panel">
@@ -51,6 +53,10 @@ export default async function MyRegistrationPage({params,searchParams}:{params:P
         {notice==="updated"&&<div className="success-banner">登録内容を更新しました。</div>}
         {notice==="cancelled"&&<div className="success-banner">参加予定をキャンセルしました。</div>}
         {notice==="line-unlinked"&&<div className="success-banner">LINE連携を解除しました。</div>}
+        {notice==="email-sent"&&<div className="success-banner">登録メールアドレスへチケットを送信しました。</div>}
+        {notice==="email-queued"&&<div className="success-banner">メールの送信を受け付けました。届かない場合は時間をおいてご確認ください。</div>}
+        {notice==="email-limit"&&<div className="form-banner">再送は24時間に3回までです。しばらくしてからお試しください。</div>}
+        {notice==="email-unavailable"&&<div className="form-banner">このチケットは再送できません（未入金・譲渡済み・取消済みなど）。</div>}
         {notice==="line-linked"&&<div className="success-banner">LINE連携が完了しました。</div>}
         {notice==="line-need-friend"&&<div className="form-banner">LINEアカウントの確認はできましたが、公式アカウントがまだ友だち追加されていません。下のボタンから友だち追加すると、通知を受け取れるようになります。</div>}
         {notice==="line-conflict"&&<div className="form-banner">このLINEアカウントまたはお申し込みは、すでに別の連携があるため連携できませんでした。</div>}

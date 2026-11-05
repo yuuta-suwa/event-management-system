@@ -1,6 +1,7 @@
 import type {Prisma} from "@prisma/client";
 import {hashTicketToken,issueTicketToken,qrTokenSecret} from "@/features/tickets/token";
 import {queueParticipantNotification} from "@/features/notifications/service";
+import {queueTicketEmail} from "@/features/email/service";
 import {assertPaymentTransition} from "./domain";
 type TicketLike={id:string;eventId:string;participantId:string;claimed:boolean;qrTokenVersion:number;paymentStatus:"UNPAID"|"PENDING"|"PAID"|"CANCELLED"|"REFUNDED"};
 export async function markTicketPaid(tx:Prisma.TransactionClient,ticket:TicketLike,event:{price:number;lineNotifications:boolean},input:{method:string;payerName?:string|null;paidAt:Date;confirmedBy:string;orderId?:string|null}){
@@ -14,5 +15,6 @@ export async function markTicketPaid(tx:Prisma.TransactionClient,ticket:TicketLi
     await queueParticipantNotification(tx,ticket.eventId,ticket.participantId,"PAYMENT_CONFIRMED");
     await queueParticipantNotification(tx,ticket.eventId,ticket.participantId,"TICKET");
   }
+  await queueTicketEmail(tx,{kind:"TICKET_ACTIVATED",ticketId:ticket.id,triggeredBy:input.confirmedBy});
   await tx.auditLog.create({data:{actorId:input.confirmedBy,action:"PAYMENT_STATUS_UPDATED",entityType:"Payment",entityId:payment.id,before:{status:ticket.paymentStatus},after:{status:"PAID",amount:event.price,ticketActivated:true,orderId:input.orderId??null,source:"COLLECTION_RECEIPT"}}});
 }
