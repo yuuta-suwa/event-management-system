@@ -28,8 +28,12 @@ export function notificationRules(event: { eventDate: Date; startTime: Date }, c
   ];
 }
 const timeSensitive=new Set(["EVENT_EVE","EVENT_DAY_OF","EVENT_THREE_HOURS"]);
+import {formatJstDate,parseJstDateTime} from "@/lib/jst";
 export function isStaleReminder(input:{type:string;scheduledAt:Date;eventStart:Date;now?:Date}){
   if(!timeSensitive.has(input.type))return false;
   const now=input.now??new Date();
-  return input.eventStart<=now||input.scheduledAt.getTime()<now.getTime()-12*60*60*1000;
+  if(input.eventStart<=now||input.scheduledAt.getTime()<now.getTime()-12*60*60*1000)return true;
+  // 「前日通知」は開催日(JST)に入ったら送らない(当日に「明日のイベント」と案内する不具合の防止)
+  if(input.type==="EVENT_EVE"&&now>=parseJstDateTime(formatJstDate(input.eventStart)))return true;
+  return false;
 }

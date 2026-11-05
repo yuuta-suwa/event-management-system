@@ -1,12 +1,13 @@
 import {notFound} from "next/navigation";
 import Link from "next/link";
-import {CalendarDays,CheckCircle2,MapPin,MessageCircle,ShieldCheck,TicketCheck,Users} from "lucide-react";
+import {CalendarDays,MapPin,ShieldCheck,TicketCheck,Users} from "lucide-react";
 import {getMyRegistration} from "@/features/participants/my-registration";
 import {issueTicketToken,qrTokenSecret} from "@/features/tickets/token";
 import {MyDetailsForm,CancelRegistrationForm} from "@/features/participants/self-service-form";
 import {cancelMyRegistration} from "@/features/participants/self-service-actions";
-import {lineLoginConfig} from "@/features/line/login";
-import {unlinkMyLine} from "@/features/participants/line-self-actions";
+import {ensureReceptionCode,formatReceptionCode} from "@/features/checkins/reception-code";
+import {isLocalDemo} from "@/server/authz";
+import {LineLinkPanel} from "@/features/participants/line-link-panel";
 import {ShareLinkPanel} from "@/features/participants/share-link-panel";
 const attendanceLabel:Record<string,string>={APPLIED:"申込済",PAID:"入金済",EXPECTED:"参加予定",CHECKED_IN:"受付済",ABSENT:"欠席",CANCELLED:"キャンセル済み",WALK_IN:"当日参加"};
 const paymentLabel:Record<string,string>={PAID:"入金済",PENDING:"入金確認中",UNPAID:"未入金",CANCELLED:"キャンセル",REFUNDED:"返金済"};
@@ -17,6 +18,7 @@ export default async function MyRegistrationPage({params,searchParams}:{params:P
   if(!data)notFound();
   const locked=data.attendanceStatus==="CANCELLED"||data.ticket?.checkedIn;
   const ticketReady=data.ticket&&["ACTIVE","USED"].includes(data.ticket.status);
+  const receptionCode=ticketReady&&data.ticket!.status==="ACTIVE"&&!locked&&!isLocalDemo()?await ensureReceptionCode(data.ticket!.id):null;
   return <main className="public-shell">
     <header className="public-brand">EVENT MANAGEMENT SYSTEM</header>
     <section className="application-layout">
@@ -31,19 +33,8 @@ export default async function MyRegistrationPage({params,searchParams}:{params:P
         {data.ticket&&<div className="introducer">チケットNo. <code>{data.ticket.ticketNumber}</code>{data.purchasedBy&&<><br/>購入者：{data.purchasedBy} さん</>}</div>}
         <div className="price-panel"><span>参加費</span><strong>¥{data.event.price.toLocaleString("ja-JP")}</strong></div>
         {ticketReady&&<Link className="demo-ticket-link" href={`/ticket/${issueTicketToken(data.ticket!.id,data.ticket!.version,qrTokenSecret())}`}><TicketCheck/>電子チケット（QR）を見る</Link>}
-        <div className="line-link-panel">
-          {data.participant.lineConnected?
-            <><p className="line-link-done"><CheckCircle2 size={16}/> LINE連携済み。入金確認やチケットのご案内はLINEに届きます。</p><form action={unlinkMyLine}><input type="hidden" name="token" value={token}/><button className="line-unlink">LINE連携を解除する</button></form></>
-          :<>
-            <p className="line-link-title"><MessageCircle size={16}/> LINE連携（未連携）</p>
-            <ol>
-              <li>LINEで「イベント管理通知」を友だち追加</li>
-              <li>トークでこの連携コードを送信：<code className="line-link-code">{data.participant.lineLinkCode}</code></li>
-            </ol>
-            {lineLoginConfig()&&<a className="demo-ticket-link" href={`/api/line/login/start?token=${encodeURIComponent(token)}`}><MessageCircle size={16}/>LINEログインで本人確認して連携</a>}
-            {process.env.NEXT_PUBLIC_LINE_BASIC_ID&&<><a className="demo-ticket-link" href={`https://line.me/R/oaMessage/%40${process.env.NEXT_PUBLIC_LINE_BASIC_ID}/?${encodeURIComponent(data.participant.lineLinkCode)}`} target="_blank" rel="noreferrer"><MessageCircle size={16}/>LINEで連携する（コード入力済みで開きます）</a><a className="demo-ticket-link" href={`https://line.me/R/ti/p/%40${process.env.NEXT_PUBLIC_LINE_BASIC_ID}`} target="_blank" rel="noreferrer"><MessageCircle size={16}/>友だち追加だけ先に行う</a></>}
-          </>}
-        </div>
+        {receptionCode&&<div className="reception-code"><span>受付コード（QRが使えないときに受付で伝えてください）</span><strong>{formatReceptionCode(receptionCode)}</strong></div>}
+        <LineLinkPanel token={token} participant={data.participant}/>
         {data.tickets.length>0&&<div className="line-link-panel">
           <p className="line-link-title"><Users size={16}/> チケット{data.order?`（${data.order.quantity}枚購入・${data.order.claimedCount}枚登録済み）`:""}</p>
           <ul className="ticket-list">{data.tickets.map(t=><li key={t.id}>
@@ -61,6 +52,7 @@ export default async function MyRegistrationPage({params,searchParams}:{params:P
         {notice==="cancelled"&&<div className="success-banner">参加予定をキャンセルしました。</div>}
         {notice==="line-unlinked"&&<div className="success-banner">LINE連携を解除しました。</div>}
         {notice==="line-linked"&&<div className="success-banner">LINE連携が完了しました。</div>}
+        {notice==="line-need-friend"&&<div className="form-banner">LINEアカウントの確認はできましたが、公式アカウントがまだ友だち追加されていません。下のボタンから友だち追加すると、通知を受け取れるようになります。</div>}
         {notice==="line-conflict"&&<div className="form-banner">このLINEアカウントまたはお申し込みは、すでに別の連携があるため連携できませんでした。</div>}
         {(notice==="line-login-failed"||notice==="line-login-unavailable")&&<div className="form-banner">LINEログインでの連携に失敗しました。連携コードをLINEトークに送信する方法をお試しください。</div>}
         {notice==="claimed"&&<div className="success-banner">チケットを受け取りました。</div>}

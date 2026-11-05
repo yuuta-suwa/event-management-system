@@ -2,7 +2,7 @@ import {db} from "@/server/db";
 import {replyLineMessage} from "@/features/notifications/line";
 import {linkParticipantToLineUser,looksLikeLinkCode,normalizeLinkCode,recordFollow,recordUnfollow} from "./link";
 export type LineWebhookEvent={type?:string;webhookEventId?:string;replyToken?:string;source?:{type?:string;groupId?:string;userId?:string};message?:{type?:string;text?:string}};
-const FOLLOW_GUIDE="友だち追加ありがとうございます。\nチケット・入金・開催のご案内をLINEでお届けするため、お申し込み後のマイページに表示されている「連携コード」（8文字）をこのトークに送信してください。";
+const FOLLOW_GUIDE="友だち追加ありがとうございます。\nイベントのチケットを購入・受取済みの方は、マイチケット画面から「LINEで登録・連携する」を押してLINE連携を行ってください。";
 const MESSAGES={
   linked:"LINE連携が完了しました。今後、入金確認や当日のご案内をこちらにお送りします。",
   already:"すでにLINE連携済みです。",

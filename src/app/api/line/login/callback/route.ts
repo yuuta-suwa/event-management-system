@@ -17,8 +17,9 @@ export async function GET(request:Request){
   let notice="line-linked";
   try{
     const identity=await fetchLineIdentity(cfg,code,state.nonce);
-    const result=await db.$transaction(tx=>linkParticipantToLineUser(tx,{participantId:registration.participantId,lineUserId:identity.userId,displayName:identity.name,source:"LINE_LOGIN"}));
+    const result=await db.$transaction(tx=>linkParticipantToLineUser(tx,{participantId:registration.participantId,lineUserId:identity.userId,displayName:identity.name,source:"LINE_LOGIN",friendFlag:identity.friendFlag}));
     if(result==="LINE_USER_LINKED_OTHER"||result==="PARTICIPANT_LINKED_OTHER")notice="line-conflict";
+    else if(identity.friendFlag!==true){const now=await db.participant.findUnique({where:{id:registration.participantId},select:{lineConnected:true}});if(!now?.lineConnected)notice="line-need-friend"}
   }catch{notice="line-login-failed"}
   const response=NextResponse.redirect(`${myPage}?notice=${notice}`);
   response.cookies.set(loginCookieName,"",{maxAge:0,path:"/api/line/login"});

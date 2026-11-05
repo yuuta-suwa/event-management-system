@@ -21,14 +21,24 @@ export function buildAuthorizeUrl(cfg:LoginConfig,state:string,nonce:string){
   const q=new URLSearchParams({response_type:"code",client_id:cfg.channelId,redirect_uri:cfg.redirectUri,state,scope:"profile openid",nonce,bot_prompt:"normal"});
   return `https://access.line.me/oauth2/v2.1/authorize?${q.toString()}`;
 }
-export async function fetchLineIdentity(cfg:LoginConfig,code:string,nonce:string,fetchFn:typeof fetch=fetch):Promise<{userId:string;name:string|null}>{
+export async function fetchFriendFlag(accessToken:string,fetchFn:typeof fetch=fetch):Promise<boolean|null>{
+  // LINEログインとMessaging APIチャネルを連携済みの公式アカウントに対する友だち状態(ログイン直後のみ取得できる)
+  try{
+    const response=await fetchFn("https://api.line.me/friendship/v1/status",{headers:{Authorization:`Bearer ${accessToken}`}});
+    if(!response?.ok)return null;
+    const body=await response.json() as {friendFlag?:unknown};
+    return typeof body.friendFlag==="boolean"?body.friendFlag:null;
+  }catch{return null}
+}
+export async function fetchLineIdentity(cfg:LoginConfig,code:string,nonce:string,fetchFn:typeof fetch=fetch):Promise<{userId:string;name:string|null;friendFlag:boolean|null}>{
   const token=await fetchFn("https://api.line.me/oauth2/v2.1/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({grant_type:"authorization_code",code,redirect_uri:cfg.redirectUri,client_id:cfg.channelId,client_secret:cfg.channelSecret})});
   if(!token.ok)throw new Error(`LINE_LOGIN_TOKEN_${token.status}`);
-  const {id_token}=await token.json() as {id_token?:string};
+  const {id_token,access_token}=await token.json() as {id_token?:string;access_token?:string};
   if(!id_token)throw new Error("LINE_LOGIN_NO_ID_TOKEN");
   const verify=await fetchFn("https://api.line.me/oauth2/v2.1/verify",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({id_token,client_id:cfg.channelId,nonce})});
   if(!verify.ok)throw new Error(`LINE_LOGIN_VERIFY_${verify.status}`);
   const profile=await verify.json() as {sub?:string;name?:string;nonce?:string};
   if(!profile.sub||profile.nonce!==nonce)throw new Error("LINE_LOGIN_INVALID_ID_TOKEN");
-  return {userId:profile.sub,name:profile.name??null};
+  const friendFlag=access_token?await fetchFriendFlag(access_token,fetchFn):null;
+  return {userId:profile.sub,name:profile.name??null,friendFlag};
 }

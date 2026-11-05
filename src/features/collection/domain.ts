@@ -30,7 +30,7 @@ export function settlementStatus(amount:number,settled:number):"APPROVED"|"PARTI
   return settled>=amount?"SETTLED":"PARTIALLY_SETTLED";
 }
 export function unsettled(amount:number,settled:number){return Math.max(0,amount-settled)}
-export type AccessInput={role:string;userId:string;managerId:string;assignments:{userId:string;role:"COLLECTOR"|"APPROVER";active:boolean}[]};
+export type AccessInput={role:string;userId:string;managerId:string;assignments:{userId:string;role:"COLLECTOR"|"APPROVER"|"REPORTER";active:boolean}[]};
 export type EventAccess={manager:boolean;collector:boolean;approver:boolean;approverFallback:boolean;canView:boolean};
 export function decideAccess(input:AccessInput):EventAccess{
   const active=input.assignments.filter(a=>a.active);

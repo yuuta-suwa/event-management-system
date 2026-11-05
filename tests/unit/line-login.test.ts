@@ -14,7 +14,7 @@ describe("LINE login config / url",()=>{
 });
 describe("LINE login identity",()=>{
   const res=(body:unknown,ok=true,status=200)=>({ok,status,json:async()=>body}) as Response;
-  it("IDトークンのsubとnonceを検証してユーザーIDを返す",async()=>{const f=vi.fn().mockResolvedValueOnce(res({id_token:"idt"})).mockResolvedValueOnce(res({sub:"U123",name:"山田",nonce:"N"}));expect(await fetchLineIdentity(cfg,"code","N",f as unknown as typeof fetch)).toEqual({userId:"U123",name:"山田"});expect(f.mock.calls[0][0]).toBe("https://api.line.me/oauth2/v2.1/token")});
+  it("IDトークンのsubとnonceを検証してユーザーIDを返す",async()=>{const f=vi.fn().mockResolvedValueOnce(res({id_token:"idt"})).mockResolvedValueOnce(res({sub:"U123",name:"山田",nonce:"N"}));expect(await fetchLineIdentity(cfg,"code","N",f as unknown as typeof fetch)).toEqual({userId:"U123",name:"山田",friendFlag:null});expect(f.mock.calls[0][0]).toBe("https://api.line.me/oauth2/v2.1/token")});
   it("nonce不一致・トークン失敗を拒否する",async()=>{const f1=vi.fn().mockResolvedValueOnce(res({id_token:"idt"})).mockResolvedValueOnce(res({sub:"U1",nonce:"OTHER"}));await expect(fetchLineIdentity(cfg,"c","N",f1 as unknown as typeof fetch)).rejects.toThrow("INVALID_ID_TOKEN");const f2=vi.fn().mockResolvedValueOnce(res({},false,400));await expect(fetchLineIdentity(cfg,"c","N",f2 as unknown as typeof fetch)).rejects.toThrow("TOKEN_400")});
 });
 describe("連携コード",()=>{

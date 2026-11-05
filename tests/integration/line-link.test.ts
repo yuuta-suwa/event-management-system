@@ -32,7 +32,7 @@ describe.skipIf(!enabled)("LINE自動連携（実DB・使い捨てテストDBの
   it("T13 友だち追加(follow)を検知して仮登録し、連携案内を返信する",async()=>{
     const uid=`U${run}follow1`;const r=await post([ev("follow",uid)]);expect(r.status).toBe(200);
     expect(await db.lineFriend.findUniqueOrThrow({where:{lineUserId:uid}})).toMatchObject({status:"FOLLOWING",matchStatus:"PENDING",participantId:null});
-    expect(replies()).toHaveLength(1);expect(replies()[0]).toContain("連携コード");
+    expect(replies()).toHaveLength(1);expect(replies()[0]).toContain("マイチケット画面");expect(replies()[0]).not.toContain("8文字");
   });
   it("T16 同じWebhookが重複配信されても二重処理しない",async()=>{
     const uid=`U${run}dup1`;const e=ev("follow",uid);await post([e]);const first=await db.lineFriend.findUniqueOrThrow({where:{lineUserId:uid}});calls=[];
@@ -84,18 +84,66 @@ describe.skipIf(!enabled)("LINE自動連携（実DB・使い捨てテストDBの
     expect(await db.participant.findUniqueOrThrow({where:{id:p.id}})).toMatchObject({lineConnected:false,lineUserId:null});expect(await db.lineFriend.findUniqueOrThrow({where:{lineUserId:uid}})).toMatchObject({matchStatus:"PENDING",participantId:null});
     const bad=new FormData();bad.set("token","reg1.forged.sig");await expect(selfActions.unlinkMyLine(bad)).rejects.toThrow("INVALID_TOKEN");
   });
+  const recorder=(async(input:RequestInfo|URL,init?:RequestInit)=>{calls.push({url:String(input),body:String(init?.body??"")});return new Response(JSON.stringify({}),{status:200})}) as typeof fetch;
+  async function loginAs(participantId:string,uid:string,friendFlag:boolean|null){
+    const r=(await db.eventRegistration.findFirst({where:{eventId,participantId}}))??await mkRegistration(participantId);const myToken=reg.issueRegistrationToken(r.id,secret);
+    const start=await startRoute.GET(new Request(`https://app.example.com/api/line/login/start?token=${encodeURIComponent(myToken)}`));
+    const auth=new URL(start.headers.get("location")!);expect(auth.searchParams.get("bot_prompt")).toBe("normal");
+    const state=auth.searchParams.get("state")!;const nonce=auth.searchParams.get("nonce")!;
+    globalThis.fetch=(async(input:RequestInfo|URL)=>{const u=String(input);if(u.endsWith("/token"))return new Response(JSON.stringify({id_token:"idt",access_token:"at"}),{status:200});if(u.endsWith("/verify"))return new Response(JSON.stringify({sub:uid,name:"ログイン太郎",nonce}),{status:200});if(u.endsWith("/friendship/v1/status"))return friendFlag===null?new Response("{}",{status:400}):new Response(JSON.stringify({friendFlag}),{status:200});return new Response("{}",{status:200})}) as typeof fetch;
+    const res=await callbackRoute.GET(new Request(`https://app.example.com/api/line/login/callback?code=abc&state=${encodeURIComponent(state)}`,{headers:{cookie:`line_login_nonce=${nonce}`}}));
+    globalThis.fetch=recorder;
+    return {notice:new URL(res.headers.get("location")!).searchParams.get("notice"),state,nonce};
+  }
   it("LINEログイン: 本人確認の上で自動連携し、不正なstate/nonceは拒否する",async()=>{
     const p=await mkParticipant("lg");const r=await mkRegistration(p.id);const myToken=reg.issueRegistrationToken(r.id,secret);const uid=`U${run}login`;
     const start=await startRoute.GET(new Request(`https://app.example.com/api/line/login/start?token=${encodeURIComponent(myToken)}`));
     expect(start.status).toBe(307);const auth=new URL(start.headers.get("location")!);expect(auth.host).toBe("access.line.me");
     const state=auth.searchParams.get("state")!;const nonce=auth.searchParams.get("nonce")!;const cookie=`line_login_nonce=${nonce}`;
-    globalThis.fetch=(async(input:RequestInfo|URL)=>{const u=String(input);if(u.endsWith("/token"))return new Response(JSON.stringify({id_token:"idt"}),{status:200});if(u.endsWith("/verify"))return new Response(JSON.stringify({sub:uid,name:"ログイン太郎",nonce}),{status:200});return new Response("{}",{status:200})}) as typeof fetch;
+    globalThis.fetch=(async(input:RequestInfo|URL)=>{const u=String(input);if(u.endsWith("/token"))return new Response(JSON.stringify({id_token:"idt",access_token:"at"}),{status:200});if(u.endsWith("/verify"))return new Response(JSON.stringify({sub:uid,name:"ログイン太郎",nonce}),{status:200});if(u.endsWith("/friendship/v1/status"))return new Response(JSON.stringify({friendFlag:true}),{status:200});return new Response("{}",{status:200})}) as typeof fetch;
     const cb=(s:string,c?:string)=>callbackRoute.GET(new Request(`https://app.example.com/api/line/login/callback?code=abc&state=${encodeURIComponent(s)}`,{headers:c?{cookie:c}:{}}));
     expect((await cb(state)).status).toBe(400);expect((await cb(state,"line_login_nonce=other")).status).toBe(400);expect((await cb(state.slice(0,-3)+"xxx",cookie)).status).toBe(400);
     expect((await db.participant.findUniqueOrThrow({where:{id:p.id}})).lineConnected).toBe(false);
     const ok=await cb(state,cookie);expect(ok.status).toBe(307);expect(ok.headers.get("location")).toContain("notice=line-linked");
-    expect(await db.participant.findUniqueOrThrow({where:{id:p.id}})).toMatchObject({lineUserId:uid,lineConnected:true});
-    expect(await db.lineFriend.findUniqueOrThrow({where:{lineUserId:uid}})).toMatchObject({matchStatus:"MATCHED",displayName:"ログイン太郎"});
+    const after=await db.participant.findUniqueOrThrow({where:{id:p.id}});
+    expect(after).toMatchObject({lineUserId:uid,lineConnected:true,lineFriendFlag:true});expect(after.lineVerifiedAt).not.toBeNull();
+    expect(await db.lineFriend.findUniqueOrThrow({where:{lineUserId:uid}})).toMatchObject({matchStatus:"MATCHED",displayName:"ログイン太郎",status:"FOLLOWING"});
     expect((await startRoute.GET(new Request("https://app.example.com/api/line/login/start?token=reg1.bad.sig"))).status).toBe(400);
+  });
+  it("T10/T11 コード送信なしで連携: 友だち未追加ならログイン成功だけでは通知可能にならず、友だち追加で自動的に通知可能になる",async()=>{
+    const {lineLinkState}=await import("@/features/line/link");
+    const p=await mkParticipant("nf");const uid=`U${run}notfriend`;
+    const r=await loginAs(p.id,uid,false);expect(r.notice).toBe("line-need-friend");
+    const mid=await db.participant.findUniqueOrThrow({where:{id:p.id},include:{lineFriend:true}});
+    expect(mid).toMatchObject({lineUserId:uid,lineConnected:false,lineFriendFlag:false});expect(mid.lineVerifiedAt).not.toBeNull();
+    expect(lineLinkState({lineUserId:mid.lineUserId,lineConnected:mid.lineConnected,lineVerifiedAt:mid.lineVerifiedAt,friendStatus:mid.lineFriend?.status})).toMatchObject({stage:"LINKED_NOT_FRIEND",verified:true,linked:true,friend:false,notifiable:false});
+    // 友だち追加(follow)で自動的に通知可能へ
+    calls=[];await post([ev("follow",uid)]);
+    const end=await db.participant.findUniqueOrThrow({where:{id:p.id},include:{lineFriend:true}});
+    expect(end).toMatchObject({lineConnected:true,lineFriendFlag:true});
+    expect(lineLinkState({lineUserId:end.lineUserId,lineConnected:end.lineConnected,lineVerifiedAt:end.lineVerifiedAt,friendStatus:end.lineFriend?.status})).toMatchObject({stage:"NOTIFIABLE",friend:true,notifiable:true});
+    expect(replies()[0]).toContain("おかえりなさい");
+  });
+  it("T12 既に友だちの人は再ログインだけで通知可能になる／ブロック中は通知可能にならない(T15)",async()=>{
+    const uid=`U${run}already`;await post([ev("follow",uid)]);const p=await mkParticipant("af");
+    expect((await loginAs(p.id,uid,null)).notice).toBe("line-linked");
+    expect(await db.participant.findUniqueOrThrow({where:{id:p.id}})).toMatchObject({lineConnected:true});
+    // ブロック → 通知停止。ログインし直してもAPIが「友だちでない」と答える間は通知可能に戻らない
+    await post([ev("unfollow",uid)]);
+    expect(await db.participant.findUniqueOrThrow({where:{id:p.id}})).toMatchObject({lineConnected:false,lineFriendFlag:false});
+    await loginAs(p.id,uid,false);
+    const blocked=await db.participant.findUniqueOrThrow({where:{id:p.id},include:{lineFriend:true}});
+    expect(blocked.lineConnected).toBe(false);expect(blocked.lineFriend?.status).toBe("BLOCKED");
+    const {lineLinkState}=await import("@/features/line/link");
+    expect(lineLinkState({lineUserId:blocked.lineUserId,lineConnected:false,lineVerifiedAt:blocked.lineVerifiedAt,friendStatus:blocked.lineFriend?.status}).stage).toBe("BLOCKED");
+    await post([ev("follow",uid)]);expect((await db.participant.findUniqueOrThrow({where:{id:p.id}})).lineConnected).toBe(true);
+  });
+  it("T14 LINEログインでも1つのLINEアカウントを別の参加者へ二重連携できない",async()=>{
+    const uid=`U${run}dupl`;const a=await mkParticipant("da");const b=await mkParticipant("db");
+    expect((await loginAs(a.id,uid,true)).notice).toBe("line-linked");
+    expect((await loginAs(b.id,uid,true)).notice).toBe("line-conflict");
+    expect((await db.participant.findUniqueOrThrow({where:{id:b.id}})).lineUserId).toBeNull();
+    expect((await loginAs(a.id,`U${run}other`,true)).notice).toBe("line-conflict");
+    expect((await db.participant.findUniqueOrThrow({where:{id:a.id}})).lineUserId).toBe(uid);
   });
 });

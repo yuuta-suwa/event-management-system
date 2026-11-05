@@ -38,7 +38,7 @@ export async function claimTicket(_:ClaimState,formData:FormData):Promise<ClaimS
       const fromParticipantId=transfer?ticket.participantId:ticket.order!.buyerParticipantId;
       const version=nextQrVersion(ticket.qrTokenVersion);
       const newToken=issueTicketToken(ticket.id,version,secret);
-      const swapped=await tx.ticket.updateMany({where:{id:ticket.id,shareVersion:ticket.shareVersion,claimed:ticket.claimed},data:{participantId:participant.id,qrTokenVersion:version,qrTokenHash:hashTicketToken(newToken),claimed:true,transferredAt:transfer?new Date():undefined,shareVersion:{increment:1}}});
+      const swapped=await tx.ticket.updateMany({where:{id:ticket.id,shareVersion:ticket.shareVersion,claimed:ticket.claimed},data:{participantId:participant.id,qrTokenVersion:version,qrTokenHash:hashTicketToken(newToken),receptionCode:null,receptionCodeIssuedAt:null,claimed:true,transferredAt:transfer?new Date():undefined,shareVersion:{increment:1}}});
       if(swapped.count!==1)throw new Error("ALREADY_CLAIMED");
       const registration=await moveRegistration(tx,{ticketId:ticket.id,eventId:ticket.eventId,toParticipantId:participant.id,orderClaim:!transfer});
       const registrationId=registration.id;

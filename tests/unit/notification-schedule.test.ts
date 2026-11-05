@@ -49,3 +49,10 @@ describe("期限切れ通知のガード",()=>{
   it("予定から12時間以上遅れた時間依存の通知は送らない",()=>{expect(isStaleReminder({type:"EVENT_EVE",scheduledAt:new Date("2026-11-03T08:00:00Z"),eventStart:new Date("2026-11-05T05:00:00Z"),now})).toBe(true)});
   it("予定どおりの通知と、時間に依存しない通知は送る",()=>{expect(isStaleReminder({type:"EVENT_EVE",scheduledAt:new Date("2026-11-03T23:00:00Z"),eventStart:new Date("2026-11-05T05:00:00Z"),now})).toBe(false);expect(isStaleReminder({type:"APPLICATION",scheduledAt:new Date("2026-10-01T00:00:00Z"),eventStart:new Date("2026-10-02T00:00:00Z"),now})).toBe(false);expect(isStaleReminder({type:"TICKET",scheduledAt:new Date("2026-10-01T00:00:00Z"),eventStart:new Date("2026-12-02T00:00:00Z"),now})).toBe(false)});
 });
+
+describe("JST回帰: 当日に前日通知を送らない",()=>{
+  const eventStart=new Date("2026-11-05T05:00:00Z");// 11/5 14:00 JST
+  it("開催日(JST)の早朝は、12時間以内の遅れでも前日通知を送らない",()=>{expect(isStaleReminder({type:"EVENT_EVE",scheduledAt:new Date("2026-11-04T09:00:00Z"),eventStart,now:new Date("2026-11-04T20:30:00Z")})).toBe(true)});
+  it("開催前日の夜(JST)なら送る",()=>{expect(isStaleReminder({type:"EVENT_EVE",scheduledAt:new Date("2026-11-04T09:00:00Z"),eventStart,now:new Date("2026-11-04T09:05:00Z")})).toBe(false)});
+  it("開催日の当日通知は開催日に送れる",()=>{expect(isStaleReminder({type:"EVENT_DAY_OF",scheduledAt:new Date("2026-11-05T03:00:00Z"),eventStart,now:new Date("2026-11-05T03:02:00Z")})).toBe(false)});
+});
