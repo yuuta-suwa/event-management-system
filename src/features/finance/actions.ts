@@ -7,7 +7,7 @@ export async function exportFinanceToSheets(_:{message?:string},formData:FormDat
   const user=await requireUser(["SUPER_ADMIN"]);
   const year=Number(formData.get("year"))||new Date().getFullYear();
   if(isLocalDemo())return {message:"ローカルデモでは出力しません。"};
-  const data=await salesData(year);
+  const data=await salesData(year,user.id);
   const rows:(string|number)[][]=[
     [`${year}年 月別収支`],
     ["月","収入","支出","収支"],

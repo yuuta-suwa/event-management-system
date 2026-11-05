@@ -3,12 +3,14 @@ import {redirect} from "next/navigation";
 import {z} from "zod";
 import {db} from "@/server/db";
 import {isLocalDemo,requireUser} from "@/server/authz";
+import {financeVisible} from "@/features/ledger/access";
 const addSchema=z.object({label:z.string().trim().min(1,"項目名を入力してください").max(60),amount:z.coerce.number().int().min(0,"金額は0以上にしてください").max(100000000),note:z.string().trim().max(300).optional()});
 export async function addExpense(eventId:string,formData:FormData){
   const actor=await requireUser(["SUPER_ADMIN","EVENT_MANAGER"]);
   const parsed=addSchema.safeParse(Object.fromEntries(formData));
   if(!parsed.success)throw new Error("INVALID_INPUT");
   if(isLocalDemo())redirect(`/events/${eventId}/expenses?notice=demo`);
+  if(!await financeVisible(actor.id,eventId))throw new Error("FORBIDDEN");
   await db.$transaction(async tx=>{
     const expense=await tx.eventExpense.create({data:{eventId,label:parsed.data.label,amount:parsed.data.amount,note:parsed.data.note||null}});
     await tx.auditLog.create({data:{actorId:actor.id,action:"EVENT_EXPENSE_ADDED",entityType:"EventExpense",entityId:expense.id,after:expense}});
@@ -21,6 +23,7 @@ export async function deleteExpense(eventId:string,formData:FormData){
   const parsed=deleteSchema.safeParse(Object.fromEntries(formData));
   if(!parsed.success)throw new Error("INVALID_INPUT");
   if(isLocalDemo())redirect(`/events/${eventId}/expenses?notice=demo`);
+  if(!isLocalDemo()&&!await financeVisible(actor.id,eventId))throw new Error("FORBIDDEN");
   const existing=await db.eventExpense.findUnique({where:{id:parsed.data.expenseId}});
   if(!existing||existing.eventId!==eventId)throw new Error("NOT_FOUND");
   await db.$transaction(async tx=>{

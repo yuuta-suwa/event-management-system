@@ -5,11 +5,12 @@ import { getEvent } from "@/features/events/data";
 import { addExpense, deleteExpense } from "@/features/events/expense-actions";
 import { listExpenses } from "@/features/events/expense-data";
 import { requireUser } from "@/server/authz";
+import { financeVisible } from "@/features/ledger/access";
 export default async function ExpensesPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{notice?:string}>}){
   const user=await requireUser(["SUPER_ADMIN","EVENT_MANAGER"]);
   const{id}=await params;
   const[event,expenses,{notice}]=await Promise.all([getEvent(id,user),listExpenses(id),searchParams]);
-  if(!event)notFound();
+  if(!event||!await financeVisible(user.id,id))notFound();
   const total=expenses.reduce((n,e)=>n+e.amount,0);
   return <><AppHeader active="events"/><main className="content-shell"><div className="page-heading"><div><p className="eyebrow">EVENT EXPENSES</p><h1>経費管理</h1><p>{event.name}</p></div></div>
   {notice&&<div className="success-banner">{notice==="demo"?"ローカルデモでは経費を保存せず、操作フローだけ確認できます。":notice==="deleted"?"経費を削除しました。":"経費を追加しました。"}</div>}

@@ -1,7 +1,8 @@
 import {db} from "@/server/db";
 import {isLocalDemo} from "@/server/authz";
 import {profitOf,summarizeSales,sumExpenses} from "./domain";
-export async function salesData(year:number){
+import {privateEventIdsFor} from "@/features/ledger/access";
+export async function salesData(year:number,viewerId?:string){
   if(isLocalDemo()){
     const events=[
       {id:"demo-autumn",name:"秋のビジネス交流会 2026",date:new Date("2026-10-18"),revenue:360000,paidCount:36,average:10000,expense:138000,profit:222000},
@@ -10,7 +11,9 @@ export async function salesData(year:number){
     return assemble(year,events);
   }
   const rows=await db.event.findMany({where:{eventDate:{gte:new Date(`${year}-01-01T00:00:00+09:00`),lt:new Date(`${year+1}-01-01T00:00:00+09:00`)}},include:{tickets:{include:{payments:{orderBy:{createdAt:"desc"},take:1}}},expenses:{where:{voidedAt:null}}},orderBy:{eventDate:"asc"}});
-  const events=rows.map(e=>{
+  // 決裁権者が指定されたイベントの収支は、決裁権者本人以外には出さない(非公開帳簿)
+  const hidden=viewerId?await privateEventIdsFor(viewerId):new Set<string>();
+  const events=rows.filter(e=>!hidden.has(e.id)).map(e=>{
     const s=summarizeSales(e.tickets.map(t=>({paymentStatus:t.paymentStatus,amount:t.payments[0]?.amount??e.price})));
     const expense=sumExpenses(e.expenses);
     return {id:e.id,name:e.name,date:e.eventDate,...s,expense,profit:profitOf(s.revenue,expense)};
