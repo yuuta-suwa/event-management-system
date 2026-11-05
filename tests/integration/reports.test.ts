@@ -137,4 +137,10 @@ describe.skipIf(!enabled)("イベント報告: 集計・権限・提出スナッ
     expect(await db.reportShare.count({where:{reportId:id}})).toBe(1);
     expect(await db.auditLog.count({where:{action:"REPORT_SHARED",entityId:id}})).toBe(1);
   });
+  it("管理者が自分で提出した参加者報告は、自分では承認できない（別の管理者が承認する）",async()=>{
+    as("mgr");const d=await call(()=>act.saveReportDraft(form({eventId,kind:"PARTICIPANT"})));const id=d.path.split("/")[2];
+    await call(()=>act.submitReport(form({reportId:id})));
+    expect((await call(()=>act.approveReport(form({reportId:id})))).code).toBe("forbidden");
+    as("admin");expect((await call(()=>act.approveReport(form({reportId:id})))).code).toBe("approved");
+  });
 });
