@@ -1,6 +1,6 @@
 # 引き継ぎ書（EVENT MANAGEMENT SYSTEM）
 
-> 最終更新: 2026-11-05 / 実装状況: マスター仕様 PHASE 1〜4 は本番反映済み、PHASE 5 は実装・テスト完了（本番反映は承認待ち）、PHASE 6〜9 は未着手。
+> 最終更新: 2026-11-06 / 実装状況: 5.4 PHASE 1〜4 は本番反映済み。PHASE 5 と 6.0 の WORKSTREAM A〜I は**ローカルで実装・テスト完了、本番は未反映（承認待ち）**。本番反映の手順は [docs/RELEASE_6_0.md](RELEASE_6_0.md)。
 > この文書は各PHASE完了時に更新する。**秘密情報（パスワード・トークン・接続文字列）は絶対に書かない。**
 
 ## 1. 概要と場所
@@ -33,7 +33,10 @@
 | `LINE_CHANNEL_ID` `LINE_CHANNEL_SECRET` `LINE_MESSAGING_ACCESS_TOKEN` | LINE Messaging API（通知・Webhook署名検証） |
 | `NEXT_PUBLIC_LINE_BASIC_ID` | 公式アカウントのベーシックID（@の後ろ）。マイページの友だち追加ボタン用 |
 | `LINE_LOGIN_CHANNEL_ID` `LINE_LOGIN_CHANNEL_SECRET` | 任意。LINEログインによる本人確認連携 |
-| `NOTIFICATION_JOB_SECRET` | `/api/jobs/notifications` の認証（Bearer） |
+| `NOTIFICATION_JOB_SECRET` | `/api/jobs/notifications` の認証（Bearer）。POST（外部スケジューラ）・GET（Vercel Cron）の両方で使える。16文字以上 |
+| `CRON_SECRET` | 任意。Vercel Cron を使う場合、Vercel が自動で付ける Bearer 値（`NOTIFICATION_JOB_SECRET` と同じ値でもよい） |
+| `RESEND_API_KEY` `EMAIL_FROM` | メール配信（QRチケット）。未設定の間は送信せず履歴に「送信しない」と記録。詳細 [docs/EMAIL_SETUP.md](EMAIL_SETUP.md) |
+| `EMAIL_REPLY_TO` `CONTACT_EMAIL` | 任意。返信先と、メール本文の「お問い合わせ先」 |
 | `GOOGLE_SHEETS_CLIENT_ID` `_CLIENT_SECRET` `_REFRESH_TOKEN` `_SPREADSHEET_ID` `_SHEET_NAME` | 任意。`/sales` のスプレッドシート出力 |
 | `BLOB_READ_WRITE_TOKEN` | チケット背景画像の保存（Vercel Blob） |
 | `ENABLE_LOCAL_DEMO_AUTH` | **本番では必ず false/未設定** |
@@ -66,9 +69,9 @@
 ## 6. 権限と役割
 
 - 全体ロール（`UserRole`）: `SUPER_ADMIN` / `EVENT_MANAGER` / `RECEPTION_STAFF` / `PARTICIPANT`。
-- イベント別の役割（`EventRoleAssignment`）: `COLLECTOR`（集金担当）/ `APPROVER`（決裁権者）。PHASE 6 で拡張予定。
+- イベント別の役割（`EventRoleAssignment`）: `COLLECTOR`（集金担当）/ `APPROVER`（決裁権者）/ `REPORTER`（報告担当。参加者報告を作成できる）。
 - 判定は `src/features/collection/domain.ts` の `decideAccess`（純粋関数・テスト済み）。**画面で隠すだけでなく必ずサーバー側で認可する。**
-- 決裁権者が未設定のイベントに限り SUPER_ADMIN が暫定で承認できる（PHASE 6 で見直し）。
+- 決裁権者が未設定のイベントに限り SUPER_ADMIN が暫定で承認できる（金銭操作のみ。**非公開帳簿は含まれない**）。非公開帳簿の閲覧は `canViewLedger`（`src/features/ledger/access.ts`）で明示的な決裁権者本人に限る。
 
 ## 7. 機能と画面（実装済み）
 
@@ -84,6 +87,13 @@
 | 送金・照合 | `/remittances` | 集金担当→決裁権者への送金。送金予定→送金済み報告→受領確認。金額が違えば差異あり（理由必須）→送金側が訂正して照合完了。送金は預り金だけを減らし、売上・経費には影響しない |
 | 店舗支払 | `/store-payments`（決裁権者のみ） | 支払先ごとに予定額・分割支払・未払残高。経費は登録時に1回だけ計上（既存経費への紐づけ可、立替由来の経費は紐づけ不可）。支払記録は取消のみ（物理削除なし） |
 | 出力 | `/exports`、`/sales` | CSV、Googleスプレッドシート出力 |
+| 受付（6.0） | `/checkin` | **QR読取／受付コード／参加者検索の3方式**。共通処理 `finalizeCheckin`（`src/features/checkins/service.ts`）。二重受付は `Checkin.ticketId` の一意制約で保証。受付コードはイベント内一意の6桁、譲渡で失効、失敗15回/10分でロック。検索受付は同姓同名のとき電話番号下4桁か身分証での確認が必須。画面に p50/p95 を表示 |
+| LINE連携（6.0） | マイページ | **標準はLINEログイン（8文字コード不要）**。友だち状態を友だち確認APIで取得。LINEログイン成功だけでは通知可能にならず、友だち追加（follow）で通知可能になる。コード方式は代替として残す |
+| メール（6.0） | `/emails` | 入金確認→QR有効化メール、申込受付メール、譲渡受取メール。受取人が未定のチケットには送らない。送信直前に保有者・失効・入金を再確認。再送は24時間3回まで。履歴・失敗・再試行 |
+| 決裁権者（6.0） | `/events/[id]/approver` | 指定・変更フロー（現決裁権者の承認＋新決裁権者の承諾。自己昇格禁止。緊急時は新決裁権者の承諾＋SUPER_ADMIN2名） |
+| 非公開帳簿（6.0） | `/ledger`, `/api/ledger/csv` | **そのイベントの決裁権者本人のみ**（SUPER_ADMINも不可）。決裁権者が指定されたイベントの収支は、`/sales`・経費管理・スプレッドシート出力・支払CSVの金額からも決裁権者以外には出ない |
+| 報告（6.0） | `/reports` | 集金状況／参加者／統合の3種。下書き→提出（提出時点のスナップショット固定）→確認→承認/差戻し→新版で再提出。LINE用報告文（既定は集計のみ）、期限付き閲覧リンク、A4印刷用ページ（ブラウザの「PDFとして保存」） |
+| 店舗支払の取消・訂正（6.0） | `/store-payments` | 予定の訂正（監査ログに前後を保存）と取消（支払記録を先に取消。登録時に新規計上した経費のみ連動して無効化。物理削除なし） |
 
 ## 8. 運用手順（LINE・外部サービス）
 
@@ -100,15 +110,35 @@
 
 **LINE連携の引き継ぎは専用資料 `docs/LINE_HANDOVER.md` を参照**（接続手順・所有権移管・トークン再発行・トラブルシュート）。本番の接続状態は管理画面 `/line-status`（SUPER_ADMIN）で診断できる。
 
-## 9. 未完了・要対応
+## 9. 未完了・要対応（2026-11-06 時点）
 
-- [ ] **通知の定期実行が動いていない**（本番DBで期限超過の PENDING ジョブあり）。古い通知を送らないガード（開催済み・12時間以上遅れた時間依存通知は取消）は実装済み（未デプロイ）。定期実行の仕組み（`POST /api/jobs/notifications` を数分おきに呼ぶ。Vercel Cron は GET のため別途対応が必要）は未設定。
-- [ ] 実際のLINEでの友だち追加→自動連携の動作確認（PHASE 3 は実LINEで未確認）。
+### 開発状況（6.0 WORKSTREAM）
+
+| | 実装 | テスト | 本番反映 | 未完了・注意 |
+|---|---|---|---|---|
+| A 購入後の配布・譲渡 | 済（PHASE 2、既に本番） | 実DB 13件 | 済 | 「購入申込中」の配布予約の専用画面は未実装 |
+| B LINE連携の簡素化 | 済 | 実DB（友だち未追加/既存/ブロック/二重連携） | **未** | LINEログインチャネルの作成・環境変数設定は管理者作業。実機のLINE未確認 |
+| C メール配信 | 済 | 実DB 7件（外部送信はモック） | **未** | 送信サービス契約・ドメインDNS・環境変数は管理者作業。実送信未確認。メールアドレスの所有確認フローは未実装 |
+| D 受付方式 | 済 | 実DB 9件 | **未** | |
+| E 受付の高速化 | 済（実装） | サーバー処理の実測のみ | **未** | **iPhone/Android実機での1秒以内の実測は未実施**。[docs/CHECKIN_PERFORMANCE.md](CHECKIN_PERFORMANCE.md) |
+| F 集金・立替・送金・店舗支払 | 済（PHASE 4・5＋取消/訂正） | 実DB 11件ほか | PHASE 4は済。PHASE 5＋取消/訂正は**未** | |
+| G 決裁・帳簿 | 済 | 実DB 7件＋単体 | **未** | 決裁権者アカウントの決定と指定は管理者作業 |
+| H 報告・PDF・LINE共有 | 済 | 実DB 6件＋単体 | **未** | PDFはブラウザ印刷（サーバー生成の.pdfではない）。LINEへの自動投稿はしない（共有ボタンで送信先をLINE側で選ぶ） |
+| I 通知スケジューラ | 済（GET対応・古い通知のガード・JST回帰） | 単体＋実DB | **未** | **定期実行そのものは未設定**。[docs/SCHEDULER.md](SCHEDULER.md) |
+
+### 管理者が行う操作（順番）
+
+[docs/RELEASE_6_0.md](RELEASE_6_0.md) の「本番反映の手順」「管理者の設定作業」を参照。
+
+### 既知の注意点・未検証
+
+- [ ] 実LINEでの通しの動作確認（LINEログイン→友だち追加→通知可能）。未実施。
+- [ ] iPhone Safari / Android Chrome での受付速度の実測。未実施。
 - [ ] Google スプレッドシート出力の環境変数設定と動作確認。
-- [ ] 決裁権者のアカウント決定（PHASE 6）。
-- [ ] PHASE 6 以降: 非公開帳簿（決裁権者のみ・SUPER_ADMINも不可）、決裁権者の指定・変更フロー、役割変更、報告書（集金/参加者）、PDF、LINE共有。
-- [ ] 店舗支払の「支払予定の取消」は未実装（誤登録は PHASE 6 の訂正フローで対応予定）。
-- [ ] 本番画面の通し確認（管理者ログインでの目視）。これまでの検証は実DB統合テストとローカル画面確認が中心。
+- [ ] 本番画面の管理者ログインでの目視確認（ローカルDBでは確認済み: 受付3方式・マイページ・報告・帳簿の拒否・売上画面の非公開イベント除外）。
+- [ ] 日時表示: 全ページに `timeZone: Asia/Tokyo` を明示した。本番サーバーがUTCの場合は表示が変わる（正しくなる）ため、反映後にイベント日時の表示を確認する。
+- [ ] 決裁権者が未設定の間は、SUPER_ADMINが送金受領・立替承認・店舗支払を暫定で行える（従来仕様）。非公開帳簿は決裁権者が指定されるまで誰も閲覧できない。
+- [ ] `origin/HEAD`（GitHubの既定ブランチ）は `production-release`（古いブランチ）で、実際の本番デプロイは `main` への push で動いている。Vercel の Production Branch 設定を確認し、既定ブランチ（GitHub Actions の定期実行は既定ブランチでのみ動く）を `main` にするか決める。
 
 ## 10. 既知の注意点
 
