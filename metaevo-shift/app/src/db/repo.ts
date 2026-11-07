@@ -11,7 +11,7 @@ import {
 } from '../domain/schema';
 import { addDays, localDateOf } from '../domain/dates';
 import { newId } from '../domain/id';
-import { finalizeWorkshop, type Answer } from '../domain/workshop';
+import { finalizeWorkshop, prefillFromBranch, type Answer, type Answers } from '../domain/workshop';
 
 export const clock = { now: (): Date => new Date() };
 
@@ -130,7 +130,12 @@ export async function saveWorkshopAnswer(id: string, answer: Answer | undefined,
     const w = await getKv<Workshop>('workshop');
     const answers = { ...w.answers } as Record<string, unknown>;
     if (answer === undefined) delete answers[id];
-    else answers[id] = answer;
+    else if (answer.skipped) answers[id] = answer;
+    else {
+      // 統合保存：先に保存された値（分岐からの引き継ぎ等）を消さない。スキップ状態は解除。
+      const prev = answers[id] as Answer | undefined;
+      answers[id] = { ...(prev && !prev.skipped ? prev : {}), ...answer, skipped: false };
+    }
     await putKv('workshop', {
       ...w,
       status: w.status === 'completed' ? 'completed' : 'in_progress',
@@ -145,8 +150,13 @@ export async function setWorkshopStep(stepId: string): Promise<void> {
   const d = db();
   await d.transaction('rw', d.kv, async () => {
     const w = await getKv<Workshop>('workshop');
+    const answers = { ...w.answers } as Answers;
+    // 分岐回答からの初期値は、常に最新の保存値から作る（未回答のときだけ）
+    const pre = prefillFromBranch(answers, stepId);
+    if (pre) answers[stepId] = { ...(answers[stepId] ?? {}), ...pre };
     await putKv('workshop', {
       ...w,
+      answers,
       status: w.status === 'completed' ? 'completed' : 'in_progress',
       startedAt: w.startedAt ?? clock.now().toISOString(),
       currentStepId: stepId,

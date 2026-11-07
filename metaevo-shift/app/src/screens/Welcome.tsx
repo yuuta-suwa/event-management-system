@@ -15,7 +15,7 @@ export function Welcome() {
     <div>
       <div className="hero-brand">
         <img src="./icon.svg" alt="" />
-        <h1><span className="brand-name">{brand.brand}</span>｜{brand.tagline}</h1>
+        <h1><span className="brand-name">{brand.brand}</span><br /><span style={{ fontSize: '1.05rem' }}>｜{brand.tagline}｜</span></h1>
         <p className="muted">{brand.reading}</p>
       </div>
       <InstallGuide />

@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { clock, loadAll, type AppData } from './db/repo';
 import { getDataMode, type DataMode } from './db/db';
 import { addDays, daysBetween, localDateOf } from './domain/dates';
-import { computeActionMetrics, latestPlanByDate, type ActionMetrics } from './domain/metrics';
+import { computeActionMetrics, experimentPeriodStart, latestPlanByDate, type ActionMetrics } from './domain/metrics';
 import { day0Of, dueReviews, type DueReview } from './domain/reviews';
 import type { DayPlan, Experiment, Goal } from './domain/schema';
 
@@ -128,7 +128,8 @@ export function AppProvider(props: { children: (route: Route, ready: boolean) =>
     let cycleMetrics: ActionMetrics | null = null;
     if (experiment) {
       const end = experiment.endDate < today ? experiment.endDate : today;
-      const start = experiment.startDate <= end ? experiment.startDate : end;
+      const s0 = experimentPeriodStart(experiment, data.dayPlans);
+      const start = s0 <= end ? s0 : end;
       cycleMetrics = computeActionMetrics(data.dayPlans, data.events, start, end, today);
     }
     return {

@@ -267,7 +267,7 @@ export function finalizeWorkshop(workshop: Workshop, compass: LifeCompass, now: 
     goalId: goal.id,
   };
 
-  const planDate = q15.when === 'tomorrow' ? day1 : today;
+  const planDate = q15.when === 'today' ? today : day1; // 画面の初期値は「明日」
   const plan: DayPlan = {
     id: newId('p'),
     localDate: planDate,

@@ -113,6 +113,13 @@ export function computeActionMetrics(
   };
 }
 
+/** 実験の集計開始日：startDate（Day1）より前に紐づく計画（Day0の初回行動など）があれば含める */
+export function experimentPeriodStart(exp: { id: string; startDate: string }, plans: DayPlan[]): string {
+  let s = exp.startDate;
+  for (const p of plans) if (p.experimentId === exp.id && p.localDate < s) s = p.localDate;
+  return s;
+}
+
 export function pct(r: number): number {
   return Math.round(r * 100);
 }

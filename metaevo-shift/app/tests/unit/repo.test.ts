@@ -24,8 +24,18 @@ describe('初回ワークの途中保存と再開', () => {
     await repo.setWorkshopStep('Q02');
     const a = await repo.loadAll();
     expect(a.workshop.status).toBe('in_progress');
-    expect(a.workshop.answers.Q01).toEqual({ choice: '仕事' });
+    expect(a.workshop.answers.Q01).toEqual({ choice: '仕事', skipped: false });
     expect(a.workshop.currentStepId).toBe('Q02');
+  });
+  it('分岐の回答は次の質問の初期値になり、後からの部分入力で消えない（統合保存）', async () => {
+    await repo.saveWorkshopAnswer('Q07', { choice: 'protect' }, 'Q07');
+    await repo.saveWorkshopAnswer('BR2', { text: '仮の目標を1行書く' }, 'BR2');
+    await repo.setWorkshopStep('Q15');
+    await repo.saveWorkshopAnswer('Q15', { when: 'today' }, 'Q15');
+    const a = await repo.loadAll();
+    expect(a.workshop.answers.Q15).toEqual({ action: '仮の目標を1行書く', when: 'today', skipped: false });
+    await repo.saveWorkshopAnswer('Q15', { skipped: true }, 'Q15');
+    expect((await repo.loadAll()).workshop.answers.Q15).toEqual({ skipped: true });
   });
   it('完了するとワーク中の入力がそのまま今日の計画になる（再入力不要）', async () => {
     await doWorkshop();
