@@ -1,0 +1,409 @@
+{
+  "version": "2.3",
+  "locale": "ja-JP",
+  "workshopMinutes": 60,
+  "introMinutes": 8,
+  "workMinutes": 52,
+  "questions": [
+    {
+      "id": "Q01",
+      "section": "values",
+      "timeWindow": "08:00-18:00",
+      "label": "今、一番変えたい現実は何ですか？",
+      "inputType": "select_or_text",
+      "options": [
+        "収入",
+        "仕事",
+        "事業",
+        "人間関係",
+        "健康",
+        "方向性",
+        "その他",
+        "答えたくない"
+      ],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q02",
+      "section": "values",
+      "timeWindow": "08:00-18:00",
+      "label": "あなたは、どんな生き方を大切にしたいですか？",
+      "inputType": "multi_or_text",
+      "options": [
+        "人への貢献",
+        "自由",
+        "成長",
+        "誠実",
+        "家族",
+        "挑戦",
+        "安定",
+        "その他",
+        "まだ分からない"
+      ],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q03",
+      "section": "values",
+      "timeWindow": "08:00-18:00",
+      "label": "その大切なことを、最近の生活で感じた場面はありますか？",
+      "inputType": "text",
+      "options": [],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q04",
+      "section": "desire",
+      "timeWindow": "18:00-28:00",
+      "label": "変えたい理由は、あなた自身の望みですか？",
+      "inputType": "single",
+      "options": [
+        "自分の意思",
+        "周囲の期待",
+        "混在",
+        "分からない"
+      ],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q05",
+      "section": "desire",
+      "timeWindow": "18:00-28:00",
+      "label": "望む未来を考えたとき、期待することと負担を感じることは何ですか？",
+      "inputType": "multi_or_text",
+      "options": [
+        "ワクワク",
+        "可能性",
+        "失敗への不安",
+        "期限へのプレッシャー",
+        "義務感",
+        "他者評価",
+        "負担はない",
+        "分からない"
+      ],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q06",
+      "section": "desire",
+      "timeWindow": "18:00-28:00",
+      "label": "その目標を明確にすることや、人に話すことに抵抗がありますか？",
+      "inputType": "single",
+      "options": [
+        "明確化に抵抗",
+        "人に話すことに抵抗",
+        "両方に抵抗",
+        "特になし",
+        "分からない"
+      ],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q07",
+      "section": "goal",
+      "timeWindow": "28:00-39:00",
+      "label": "現在の状態に最も近いものを選んでください。",
+      "inputType": "route",
+      "options": [
+        "explore",
+        "protect",
+        "plan",
+        "execute"
+      ],
+      "requiredToFinalize": true,
+      "maySkip": false,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {
+        "explore": "方向性を探している",
+        "protect": "望みはあるが明確化や公開が負担",
+        "plan": "目標はあるが方法・計画が分からない",
+        "execute": "計画はあるが実行しにくい"
+      }
+    },
+    {
+      "id": "Q08",
+      "section": "goal",
+      "timeWindow": "28:00-39:00",
+      "label": "この14日間で何を少し前進させたいですか？",
+      "inputType": "experiment_theme",
+      "options": [],
+      "requiredToFinalize": true,
+      "maySkip": false,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q09",
+      "section": "goal",
+      "timeWindow": "28:00-39:00",
+      "label": "14日後、何が起きていれば前進したと分かりますか？",
+      "inputType": "evidence_plan",
+      "options": [],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q10",
+      "section": "incident",
+      "timeWindow": "39:00-49:00",
+      "label": "最近、重要だと思っていたのに予定どおりできなかったことはありますか？",
+      "inputType": "text_or_none",
+      "options": [],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q11",
+      "section": "incident",
+      "timeWindow": "39:00-49:00",
+      "label": "そのとき、実際には何をしましたか？",
+      "inputType": "single",
+      "options": [
+        "予定どおり実行",
+        "別作業",
+        "突発対応",
+        "休息",
+        "何もしなかった",
+        "不明"
+      ],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q12",
+      "section": "incident",
+      "timeWindow": "39:00-49:00",
+      "label": "その直前に考えたことや感じたことはありますか？",
+      "inputType": "multi_or_text",
+      "options": [
+        "不安",
+        "面倒",
+        "義務感",
+        "失敗への怖さ",
+        "方法不明",
+        "疲労",
+        "何もなし",
+        "不明"
+      ],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q13",
+      "section": "incident",
+      "timeWindow": "39:00-49:00",
+      "label": "その直後に何が起きましたか？",
+      "inputType": "single",
+      "options": [
+        "安心",
+        "達成感",
+        "成果が出た",
+        "負担が増した",
+        "変化なし",
+        "不明"
+      ],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q14",
+      "section": "incident",
+      "timeWindow": "39:00-49:00",
+      "label": "行動を妨げる原因として何が関係していそうですか？（最大2つ）",
+      "inputType": "multi",
+      "options": [
+        "value_gap",
+        "self_worth",
+        "method_gap",
+        "low_efficacy",
+        "avoidance",
+        "opportunity",
+        "urgency",
+        "overload",
+        "unknown"
+      ],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {
+        "value_gap": "目標への納得感が低い",
+        "self_worth": "自己評価や公開への不安",
+        "method_gap": "やり方が分からない",
+        "low_efficacy": "できる見込みが持てない",
+        "avoidance": "不快な気持ちを避けたい",
+        "opportunity": "時間・環境が整わない",
+        "urgency": "目先の緊急そうな作業が優先される",
+        "overload": "負荷や疲労が大きい",
+        "unknown": "まだ分からない"
+      },
+      "maxSelections": 2
+    },
+    {
+      "id": "Q15",
+      "section": "plan",
+      "timeWindow": "49:00-56:00",
+      "label": "今日か明日、最も大切な一歩として何を実行しますか？",
+      "inputType": "action",
+      "options": [],
+      "requiredToFinalize": true,
+      "maySkip": false,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q16",
+      "section": "plan",
+      "timeWindow": "49:00-56:00",
+      "label": "いつ、どんな状況になったら、その一歩を始めますか？",
+      "inputType": "if_then",
+      "options": [],
+      "requiredToFinalize": true,
+      "maySkip": false,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q17",
+      "section": "plan",
+      "timeWindow": "49:00-56:00",
+      "label": "もし妨げが出たらどう対応し、何を記録しますか？",
+      "inputType": "backup_and_evidence",
+      "options": [],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    },
+    {
+      "id": "Q18",
+      "section": "start",
+      "timeWindow": "56:00-60:00",
+      "label": "今、最初の2分を試しますか？",
+      "inputType": "single",
+      "options": [
+        "着手した",
+        "後で開始する",
+        "休息する"
+      ],
+      "requiredToFinalize": false,
+      "maySkip": true,
+      "privacy": "private",
+      "interpretation": "self_report_not_diagnosis",
+      "optionLabels": {}
+    }
+  ],
+  "branches": [
+    {
+      "route": "explore",
+      "labels": [
+        "A1",
+        "A2"
+      ],
+      "prompts": [
+        "最近充実した経験や興味を持った活動は何ですか？",
+        "14日間に、何を実際に体験して確かめますか？"
+      ],
+      "output": "探索行動・具体的な観察記録"
+    },
+    {
+      "route": "protect",
+      "labels": [
+        "B1",
+        "B2"
+      ],
+      "prompts": [
+        "目標を明確にしたり公開したりすると何が負担ですか？",
+        "誰にも公開せず仮の目標を試すなら、何を一つできますか？"
+      ],
+      "output": "非公開の仮目標・小行動"
+    },
+    {
+      "route": "plan",
+      "labels": [
+        "C1",
+        "C2"
+      ],
+      "prompts": [
+        "最初の方法が分からない、全体が分からない、できる見込みがない、のどれですか？",
+        "どの情報や経験が得られたら方法が少し分かったと言えますか？"
+      ],
+      "output": "学習実験・結果証拠"
+    },
+    {
+      "route": "execute",
+      "labels": [
+        "D1",
+        "D2"
+      ],
+      "prompts": [
+        "実行する瞬間、どんな妨げが起きやすいですか？",
+        "開始できる時間・場所・環境をどう用意しますか？"
+      ],
+      "output": "最重要行動・開始条件・対応策"
+    }
+  ],
+  "maxBranchQuestionsPerPerson": 2,
+  "notes": [
+    "人生理念・感情・収入は必須にしない",
+    "ルートは人間の性格分類ではない",
+    "公開は初期状態でしない",
+    "Q08/Q15/Q16は途中保存なら空欄可、完了時には必要"
+  ],
+  "optionalLifeTimePrompt": {
+    "id": "LT00",
+    "section": "values",
+    "withinQuestion": "Q02",
+    "maximumAdditionalMinutes": 0,
+    "label": "人生の最後に振り返ったとき、大切にしていたいものは何ですか？",
+    "gentleAlternative": "将来の自分が大切にしていたいことは何ですか？",
+    "requiredToFinalize": false,
+    "maySkip": true,
+    "privacy": "private",
+    "doesNotChangeTimeBox": true
+  }
+}

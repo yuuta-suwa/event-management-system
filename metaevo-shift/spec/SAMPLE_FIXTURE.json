@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "2.1",
+  "createdAt": "2026-11-07T00:00:00+09:00",
+  "preferences": {
+    "timeZone": "Asia/Tokyo",
+    "dataSharing": "private",
+    "lastBackupAt": null,
+    "displayTheme": "dark"
+  },
+  "profile": {
+    "currentChallenge": "目標設定がまだ難しい",
+    "valueDrafts": [
+      "人の可能性を引き出したい"
+    ],
+    "motivations": [
+      "自分の意思"
+    ],
+    "sharingResistance": "人に話すことへの抵抗",
+    "selectedRoute": "protect"
+  },
+  "workshop": {
+    "status": "completed",
+    "startedAt": "2026-11-07T10:00:00+09:00",
+    "completedAt": "2026-11-07T11:00:00+09:00",
+    "answers": {
+      "Q07": "protect",
+      "Q08": "非公開の仮の目標を一つ書く",
+      "Q15": "仮の目標を一行書く",
+      "Q16": "朝食後に5分"
+    },
+    "selectedRoute": "protect",
+    "initialExperimentId": "ex1"
+  },
+  "goals": [
+    {
+      "id": "g1",
+      "status": "provisional",
+      "title": "私的な仮目標",
+      "purpose": "自分のやりたいことを探索する",
+      "targetDate": null,
+      "sharing": "private",
+      "createdAt": "2026-11-07T10:20:00+09:00",
+      "revisedAt": null,
+      "outcomeMeasureId": null
+    }
+  ],
+  "experiments": [
+    {
+      "id": "ex1",
+      "route": "protect",
+      "theme": "非公開の仮目標探索",
+      "experimentKind": "exploration",
+      "firstAction": "仮の目標を1行書く",
+      "startCue": "朝食後に机で5分",
+      "fallbackPlan": "負担が大きいときは2分だけ",
+      "startDate": "2026-11-08",
+      "endDate": "2026-11-21",
+      "status": "active",
+      "hypothesisIds": [
+        "self_worth"
+      ],
+      "evidenceMeasureIds": [
+        "e1"
+      ]
+    }
+  ],
+  "dayPlans": [
+    {
+      "id": "p1",
+      "localDate": "2026-11-08",
+      "dayMode": "advance",
+      "status": "planned",
+      "experimentId": "ex1",
+      "importantAction": "仮の目標を1行書く",
+      "startCue": "朝食後に机で5分",
+      "plannedMinutes": 5,
+      "plannedAt": "2026-11-07T11:00:00+09:00",
+      "note": null
+    }
+  ],
+  "events": [],
+  "evidence": [
+    {
+      "id": "e1",
+      "layer": "learning",
+      "observedAt": "2026-11-07T11:00:00+09:00",
+      "description": "目的についての仮説を一つ書く予定",
+      "goalId": "g1",
+      "experimentId": "ex1",
+      "quantity": null,
+      "unit": null,
+      "baselineQuantity": null,
+      "source": "self_report"
+    }
+  ],
+  "reviews": [],
+  "lifeCompass": {
+    "status": "provisional",
+    "visibility": "private",
+    "values": [
+      "人への貢献"
+    ],
+    "desiredWayOfLiving": "人の可能性を引き出す",
+    "lifePrinciple": null,
+    "longTermPurpose": null,
+    "updatedAt": "2026-11-07T11:00:00+09:00",
+    "revisions": []
+  },
+  "lifeTime": {
+    "enabled": false,
+    "displayMode": "reflection",
+    "homeCard": "off",
+    "visibility": "private",
+    "birthDate": null,
+    "birthYear": null,
+    "planningHorizonAge": null,
+    "optedInAt": null,
+    "reflections": [],
+    "reflectionToPlanLinks": []
+  }
+}

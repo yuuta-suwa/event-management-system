@@ -1,0 +1,13 @@
+{
+  "brand": "MetaEVO Shift",
+  "reading": "メタエボシフト",
+  "tagline": "自分革命システム",
+  "fullDisplayName": "MetaEVO Shift（メタエボシフト）―自分革命システム―",
+  "pwa": {
+    "name": "MetaEVO Shift - 自分革命システム",
+    "short_name": "MetaEVO Shift"
+  },
+  "packageSlug": "metaevo-shift",
+  "productSpecVersion": "2.3",
+  "dataSchemaVersion": "2.1"
+}

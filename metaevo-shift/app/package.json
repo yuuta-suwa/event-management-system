@@ -1,0 +1,41 @@
+{
+  "name": "metaevo-shift",
+  "private": true,
+  "version": "2.3.0",
+  "type": "module",
+  "description": "MetaEVO Shift（メタエボシフト）―自分革命システム― ローカルファーストPWA",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host --port 4173",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:e2e": "playwright test --trace off",
+    "screenshots": "playwright test tests/e2e/screenshots.spec.ts --trace off",
+    "check": "npm run typecheck && npm run test && npm run build && npm run test:e2e"
+  },
+  "dependencies": {
+    "dexie": "4.4.0",
+    "dexie-react-hooks": "4.4.0",
+    "react": "19.2.9",
+    "react-dom": "19.2.9",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.18.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "6.2.1",
+    "ajv": "8.17.1",
+    "ajv-formats": "3.0.1",
+    "fake-indexeddb": "6.2.4",
+    "typescript": "5.9.3",
+    "vite": "8.3.5",
+    "vite-plugin-pwa": "2.0.0",
+    "vitest": "5.1.0"
+  }
+}
