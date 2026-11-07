@@ -38,7 +38,9 @@ async function next(page: Page) {
 
 export async function startWorkshop(page: Page) {
   await page.goto('/');
-  await page.getByTestId('start-onboarding').click();
+  await expect(page.getByTestId('start-onboarding').or(page.getByTestId('today'))).toBeVisible();
+  if (await page.getByTestId('start-onboarding').isVisible()) await page.getByTestId('start-onboarding').click();
+  else await page.goto('/#/workshop');
   await expect(page.getByTestId('intro')).toBeVisible();
   for (let i = 0; i < 7; i++) await page.getByTestId('intro-next').click();
   await page.getByTestId('intro-done').click();

@@ -106,16 +106,17 @@ function HorizonAndBirth(props: { lt: LifeTime }) {
   const [birthDate, setBirthDate] = useState(lt.birthDate ?? '');
   const [birthYear, setBirthYear] = useState(lt.birthYear ? String(lt.birthYear) : '');
   const [err, setErr] = useState<string | null>(null);
+  const [showCustom, setShowCustom] = useState(false);
   const presetValue = lt.planningHorizonAge && HORIZON_PRESETS.includes(lt.planningHorizonAge as 80) ? String(lt.planningHorizonAge) : lt.planningHorizonAge ? 'custom' : null;
   return (
     <div>
       <Choice
         legend="仮の節目（計画上の到達年齢）"
         options={[...HORIZON_PRESETS.map((a) => ({ value: String(a), label: `${a}歳` })), { value: 'custom', label: '任意' }]}
-        value={presetValue}
-        onChange={(v) => { if (v !== 'custom') repo.updateLifeTime({ planningHorizonAge: Number(v) }); else setCustom(custom || ''); }}
+        value={showCustom ? 'custom' : presetValue}
+        onChange={(v) => { if (v !== 'custom') { setShowCustom(false); void repo.updateLifeTime({ planningHorizonAge: Number(v) }); } else setShowCustom(true); }}
       />
-      {(presetValue === 'custom' || custom) && (
+      {(presetValue === 'custom' || showCustom) && (
         <div className="row">
           <div className="grow"><TextField label={`任意の年齢（${HORIZON_MIN}〜${HORIZON_MAX}）`} type="number" inputMode="numeric" value={custom} onChange={setCustom} testId="horizon-custom" /></div>
           <button className="btn sm" style={{ marginTop: 20 }} onClick={() => { const n = Number(custom); const e = validateHorizon(n); setErr(e); if (!e) repo.updateLifeTime({ planningHorizonAge: n }); }}>設定</button>

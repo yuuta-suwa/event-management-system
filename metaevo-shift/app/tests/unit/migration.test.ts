@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import Ajv2020 from 'ajv/dist/2020';
-import addFormats from 'ajv-formats';
-import schema from '../../src/spec/DATA_SCHEMA.json';
 import fixture from '../../../spec/SAMPLE_FIXTURE.json';
 import { parseBackup, MAX_BACKUP_BYTES } from '../../src/domain/migration';
+import { validateOfficial } from './schema-validator';
 
-const ajv = new Ajv2020({ allErrors: true, strict: false });
-addFormats(ajv);
-export const validateOfficial = ajv.compile(schema);
 
 const v20 = () => {
   const { lifeTime: _lt, ...rest } = structuredClone(fixture) as Record<string, unknown>;

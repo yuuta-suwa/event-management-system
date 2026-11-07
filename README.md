@@ -68,3 +68,7 @@ VercelへNext.jsアプリを接続し、マネージドPostgreSQLを用意しま
 重点テスト（入金、QR、譲渡、権限、売上、LINE、CSV、レート制限）を実装済みです。実機・ステージング確認項目は [docs/TEST_PLAN.md](docs/TEST_PLAN.md) を参照してください。
 
 詳細な設計判断は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) を参照してください。
+
+## 同梱：MetaEVO Shift（別アプリ）
+
+`metaevo-shift/` には、このイベント管理システムとは独立した個人用PWA「MetaEVO Shift（メタエボシフト）―自分革命システム―」の設計資料とアプリ本体（`metaevo-shift/app/`、Vite + React）が入っています。起動方法・テスト結果は [metaevo-shift/app/README.md](metaevo-shift/app/README.md) を参照してください。ルートの TypeScript / ESLint / Vitest 設定からは除外しています。

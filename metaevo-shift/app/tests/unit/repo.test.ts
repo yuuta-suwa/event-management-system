@@ -4,7 +4,7 @@ import * as repo from '../../src/db/repo';
 import { buildExport, restoreFromValidated, validateBackupText } from '../../src/db/backup';
 import { seedDemo } from '../../src/db/demo';
 import { AppDB, DEMO_DB, useDb } from '../../src/db/db';
-import { validateOfficial } from './migration.test';
+import { validateOfficial } from './schema-validator';
 import fixture from '../../../spec/SAMPLE_FIXTURE.json';
 import type { Answer } from '../../src/domain/workshop';
 
