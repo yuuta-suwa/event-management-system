@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactElement } from 'react';
 import { useApp } from '../state';
 import * as repo from '../db/repo';
 import { evaluateRules, type UserContext } from '../domain/rules';
 import { formatJpDate, localTimeOf } from '../domain/dates';
 import { newId } from '../domain/id';
 import type { AppEvent, DayMode, DayPlan } from '../domain/schema';
-import { AsyncButton, Choice, Sheet, TextField } from '../ui/kit';
+import { AsyncButton, Choice, Ico, Sheet, TextField } from '../ui/kit';
 import { installContext } from '../ui/platform';
 import { SafetySheet } from './Safety';
 
@@ -108,7 +108,7 @@ export function Today() {
               <>
                 <p className="small faint" style={{ marginBottom: 2 }}>前回選んだ行動</p>
                 <p className="action-title">{suggested}</p>
-                {suggestedCue && <p className="cue">{suggestedCue}</p>}
+                {suggestedCue && <p className="cue-line">{Ico.cue}<span><b>始める合図</b>{suggestedCue}</span></p>}
                 <div className="btnrow">
                   <AsyncButton className="btn primary" testId="same-as-before" onClick={async () => { await repo.upsertPlan({ date: today, importantAction: suggested, startCue: suggestedCue, doneWhen: previousPlan?.doneWhen ?? experiment?.doneWhen ?? null, dayMode: plan?.dayMode === 'prepare' ? 'prepare' : 'advance' }); }}>今日もこれ</AsyncButton>
                   <button className="btn" onClick={() => setSheet('plan')} data-testid="change-plan">変更する</button>
@@ -125,12 +125,15 @@ export function Today() {
       </section>
 
       {hasAction && (
-        <div className="grid2" style={{ marginBottom: 14 }}>
-          <button className="btn" onClick={() => { setCtx('internal'); setSheet('internal'); }} data-testid="btn-internal">別のことをしたい</button>
-          <button className="btn" onClick={() => { setCtx('external'); setSheet('external'); }} data-testid="btn-external">予定外の対応が入った</button>
-          <button className="btn" onClick={() => { setCtx('unsure_method'); setSheet('unsure'); }} data-testid="btn-unsure">何から始めるか分からない</button>
-          <button className="btn" onClick={() => setSheet('change')} data-testid="btn-change">今日は計画を変更する</button>
-        </div>
+        <>
+          <div className="section-label">必要なときだけ（15〜30秒）</div>
+          <div className="assist">
+            <button className="btn" onClick={() => { setCtx('internal'); setSheet('internal'); }} data-testid="btn-internal">{Ico.shuffle}別のことをしたい</button>
+            <button className="btn" onClick={() => { setCtx('external'); setSheet('external'); }} data-testid="btn-external">{Ico.bolt}予定外の対応が入った</button>
+            <button className="btn" onClick={() => { setCtx('unsure_method'); setSheet('unsure'); }} data-testid="btn-unsure">{Ico.question}何から始めるか分からない</button>
+            <button className="btn" onClick={() => setSheet('change')} data-testid="btn-change">{Ico.edit}今日は計画を変更する</button>
+          </div>
+        </>
       )}
 
       {advice.ruleId !== 'R_NORMAL' && !sheet && workshopDone && (
@@ -180,10 +183,10 @@ export function Today() {
 
 function ModeSwitch(props: { plan: DayPlan | null; today: string; onRecover: () => void }) {
   const mode = props.plan?.dayMode ?? null;
-  const opts: { value: DayMode; label: string; sub: string }[] = [
-    { value: 'advance', label: '前進', sub: '成果につながる行動' },
-    { value: 'prepare', label: '整える', sub: '学習・準備・整理' },
-    { value: 'recover', label: '回復', sub: '休息・健康・家族' },
+  const opts: { value: DayMode; label: string; sub: string; icon: ReactElement }[] = [
+    { value: 'advance', label: '前進', sub: '成果へ進む', icon: Ico.advance },
+    { value: 'prepare', label: '整える', sub: '学び・準備', icon: Ico.prepare },
+    { value: 'recover', label: '回復', sub: '休息・家族', icon: Ico.recover },
   ];
   return (
     <fieldset className="chips mode-switch" style={{ display: 'grid' }} data-testid="mode-switch">
@@ -202,6 +205,7 @@ function ModeSwitch(props: { plan: DayPlan | null; today: string; onRecover: () 
             }}
             data-testid={`mode-${o.value}`}
           />
+          {o.icon}
           {o.label}
           <small>{o.sub}</small>
         </label>
@@ -212,15 +216,18 @@ function ModeSwitch(props: { plan: DayPlan | null; today: string; onRecover: () 
 
 function ActionBlock(props: { plan: DayPlan; openInterrupt?: AppEvent; onSheet: (s: SheetKind) => void; exploring: boolean }) {
   const { plan, openInterrupt } = props;
+  const app = useApp();
   const s = plan.status;
+  const lastStart = [...app.data.events].reverse().find((e) => e.planId === plan.id && (e.kind === 'ACTION_STARTED' || e.kind === 'ACTION_RESUMED'));
   return (
-    <div data-testid="action-block">
+    <div data-testid="action-block" className="action-hero">
       <div className="row">
         <div className="eyebrow grow" style={{ marginBottom: 0 }}>{props.exploring ? '今日の探索' : '今日の最重要行動'}</div>
         <span className={`status-pill ${s === 'in_progress' ? 'active' : s === 'completed' ? 'done' : ''}`} data-testid="plan-status">{STATUS_LABEL[s]}</span>
       </div>
       <p className="action-title" data-testid="important-action">{plan.importantAction}</p>
-      {plan.startCue && <p className="cue">{plan.startCue}</p>}
+      {plan.startCue && <p className="cue-line">{Ico.cue}<span><b>始める合図</b>{plan.startCue}</span></p>}
+      {s === 'in_progress' && lastStart && <div className="live">{localTimeOf(lastStart.occurredAt, app.tz)} から取り組んでいます</div>}
       {plan.doneWhen && <p className="small faint">終了の目安：{plan.doneWhen}</p>}
       {plan.priorityReason && <details><summary className="small">なぜ今これを優先するか</summary><p className="small muted">{plan.priorityReason}</p></details>}
       {plan.displacedActivity && <p className="small faint">置き換える時間：{plan.displacedActivity}</p>}
@@ -238,21 +245,27 @@ function ActionBlock(props: { plan: DayPlan; openInterrupt?: AppEvent; onSheet: 
       )}
 
       {(s === 'planned' || s === 'not_started' || s === 'unknown') && (
-        <AsyncButton className="btn primary xl block" testId="btn-start" onClick={() => repo.startAction(plan.id)}>今から始める</AsyncButton>
+        <AsyncButton className="btn primary xl block" testId="btn-start" onClick={() => repo.startAction(plan.id)}>{Ico.play}今から始める</AsyncButton>
       )}
       {s === 'in_progress' && (
         <div className="btnrow">
-          <AsyncButton className="btn" testId="btn-pause" onClick={() => repo.pauseAction(plan.id)}>一時停止</AsyncButton>
-          <button className="btn primary" data-testid="btn-complete" onClick={() => props.onSheet('complete')}>完了した</button>
+          <AsyncButton className="btn" testId="btn-pause" onClick={() => repo.pauseAction(plan.id)}>{Ico.pause}一時停止</AsyncButton>
+          <button className="btn primary" data-testid="btn-complete" onClick={() => props.onSheet('complete')}>{Ico.check}完了した</button>
         </div>
       )}
       {s === 'paused' && !openInterrupt && (
         <div className="btnrow">
-          <AsyncButton className="btn primary" testId="btn-resume" onClick={() => repo.resumeAction(plan.id)}>再開する</AsyncButton>
+          <AsyncButton className="btn primary" testId="btn-resume" onClick={() => repo.resumeAction(plan.id)}>{Ico.play}再開する</AsyncButton>
           <button className="btn" onClick={() => props.onSheet('complete')}>完了した</button>
         </div>
       )}
-      {s === 'completed' && <p className="gold" data-testid="completed-msg">完了を記録しました。何をしたかは夜の確認で追記できます。</p>}
+      {s === 'completed' && (
+        <div className="done-moment" data-testid="completed-msg">
+          <div className="medal" aria-hidden="true">{Ico.check}</div>
+          <p className="done-title">今日の一歩を、自分で選んで実行しました。</p>
+          <p className="small muted" style={{ margin: 0 }}>何をしたか・学んだことは、夜の確認で追記できます。</p>
+        </div>
+      )}
     </div>
   );
 }

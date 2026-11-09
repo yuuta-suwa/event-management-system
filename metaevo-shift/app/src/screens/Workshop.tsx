@@ -3,11 +3,13 @@ import { useApp } from '../state';
 import { completeWorkshop, saveWorkshopAnswer, setWorkshopStep, addLifeReflection } from '../db/repo';
 import {
   INTRO_SLIDES, LT00, QUESTIONS, QUESTION_MINUTES, ROUTE_LETTER, STEPS, branchFor, getRoute, incidentFollowupsApplicable,
-  missingForFinalize, sectionOfStep, DEFAULT_KIND, type Answer, type Answers, type BankQuestion,
+  missingForFinalize, sectionOfStep, DEFAULT_KIND, SECTIONS, type Answer, type Answers, type BankQuestion,
 } from '../domain/workshop';
 import { HYPOTHESIS_EXPERIMENTS } from '../domain/rules';
-import { Choice, MultiChoice, TextField } from '../ui/kit';
+import { Choice, Ico, MultiChoice, TextField } from '../ui/kit';
 import type { Route } from '../domain/schema';
+
+const SLIDE_ICONS = [Ico.lock, Ico.seed, Ico.layers, Ico.cue, Ico.flask, Ico.moonRest, Ico.advance, Ico.check];
 
 const KIND_LABEL = { exploration: '探索（試して確かめる）', learning: '学習（方法を知る・試す）', execution: '実行（成果につながる行動）' } as const;
 const EVIDENCE_KINDS = ['探索結果', '能力の変化', '実際の成果'] as const;
@@ -57,26 +59,37 @@ export function Workshop() {
 
   const progress = Math.round((idx / (STEPS.length - 1)) * 100);
   const q = QUESTIONS.find((x) => x.id === step);
+  // 60分の7区間。現在の区間は区間内の進み具合で塗る
+  const secSteps = STEPS.filter((s) => sectionOfStep(s).id === section.id);
+  const inSection = step === 'intro' ? (slide + 1) / INTRO_SLIDES.length : (secSteps.indexOf(step) + 1) / secSteps.length;
+  const secIndex = SECTIONS.findIndex((s) => s.id === section.id);
 
   return (
     <div data-testid="workshop">
-      <div className="row" style={{ marginTop: 4 }}>
-        <div className="section-chip grow">
-          <span>{section.window}</span>
-          <b>{section.title}（{section.minutes}分）</b>
-        </div>
-        <button className="linkbtn small" onClick={() => navigate({ name: 'today' })}>途中保存して閉じる</button>
+      <div className="wk-head">
+        <span className="clock">{section.window}</span>
+        <span className="grow" />
+        <button className="close" onClick={() => navigate({ name: 'today' })}>途中保存して閉じる</button>
       </div>
-      <div className="progress" role="progressbar" aria-label="初回ワークの進み具合" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-        <i style={{ width: `${progress}%` }} />
+      <div className="wk-title">{section.title}<span>{section.minutes}分</span>
+      </div>
+      <div className="timeline" role="progressbar" aria-label={`初回ワークの進み具合：${SECTIONS.length}区間中${secIndex + 1}区間目`} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+        {SECTIONS.map((s, i) => (
+          <div key={s.id} className={`seg ${i < secIndex ? 'done' : i === secIndex ? 'now' : ''}`} style={{ flex: s.minutes }} title={`${s.window} ${s.title}`}>
+            <i style={i === secIndex ? { width: `${Math.max(8, inSection * 100)}%` } : undefined} />
+          </div>
+        ))}
       </div>
 
       {step === 'intro' && (
-        <div className="card hero slide" data-testid="intro">
-          <div className="eyebrow">価値と使い方 {slide + 1} / {INTRO_SLIDES.length}（各1分以内）</div>
-          <h2>{INTRO_SLIDES[slide].title}</h2>
-          <p>{INTRO_SLIDES[slide].body}</p>
-          <div className="slide-dots" aria-hidden="true">
+        <div className="slide-stage" data-testid="intro">
+          <div key={slide} className="slide-enter">
+            <div className="slide-illus" aria-hidden="true">{SLIDE_ICONS[slide]}</div>
+            <div className="slide-no">{String(slide + 1).padStart(2, '0')} / {String(INTRO_SLIDES.length).padStart(2, '0')}　各1分以内</div>
+            <h2 className="slide-title">{INTRO_SLIDES[slide].title}</h2>
+            <p className="slide-body">{INTRO_SLIDES[slide].body}</p>
+          </div>
+          <div className="slide-dots" aria-hidden="true" style={{ margin: '22px 0 18px' }}>
             {INTRO_SLIDES.map((_, i) => <i key={i} className={i === slide ? 'on' : ''} />)}
           </div>
           <div className="btnrow">
@@ -351,11 +364,11 @@ function Summary(props: { answers: Answers; completed: boolean; onEdit: (id: str
     <div className="card hero" data-testid="summary">
       <div className="eyebrow">56:00〜60:00 アプリ利用と初回2分</div>
       <h2>あなたが選んだ14日間の実験</h2>
-      <dl>
-        <dt className="faint small">現在の状態</dt><dd>{route ? `${ROUTE_LETTER[route]}：${QUESTIONS[6].optionLabels[route]}` : '未選択'}</dd>
-        <dt className="faint small">14日間のテーマ</dt><dd>{a.Q08?.text || '未入力'}</dd>
-        <dt className="faint small">最も大切な一歩</dt><dd>{a.Q15?.action || '未入力'}{a.Q15?.when === 'today' ? '（今日）' : a.Q15?.action ? '（明日）' : ''}</dd>
-        <dt className="faint small">始める条件</dt><dd>{a.Q16?.text || '未入力'}</dd>
+      <dl className="summary-list">
+        <div><dt>現在の状態</dt><dd>{route ? `${ROUTE_LETTER[route]}：${QUESTIONS[6].optionLabels[route]}` : '未選択'}</dd></div>
+        <div><dt>14日間のテーマ</dt><dd>{a.Q08?.text || '未入力'}</dd></div>
+        <div><dt>最も大切な一歩</dt><dd>{a.Q15?.action || '未入力'}{a.Q15?.when === 'today' ? '（今日）' : a.Q15?.action ? '（明日）' : ''}</dd></div>
+        <div><dt>始める条件</dt><dd>{a.Q16?.text || '未入力'}</dd></div>
       </dl>
       {missing.length > 0 && !props.completed && (
         <div className="banner warn">

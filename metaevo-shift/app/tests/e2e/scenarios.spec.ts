@@ -121,7 +121,7 @@ test('G6 F：休日に休息 → 回復日として保存 → 着手率の分母
   await page.getByTestId('tab-growth').click();
   await page.getByText('Day0から').click();
   await expect(page.getByTestId('start-rate-text')).toHaveText('着手率 100%（記録がある1日中1日）');
-  await expect(page.getByTestId('layer-action')).toContainText('回復日（分母外）');
+  await expect(page.getByTestId('layer-action')).toContainText('回復日着手率の分母外');
 });
 
 test('G7 G：14日中の未記録が多い → 0%断定なし → データ不足として次の支援を提案', async ({ page }) => {

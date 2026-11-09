@@ -1,0 +1,57 @@
+/** デザイン確認用の画面撮影（VISUAL=出力先 のときのみ実行。デモデータのみ使用） */
+import { expect, test } from '@playwright/test';
+import { at, doWorkshop } from './helpers';
+
+test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+
+test('visual', async ({ page }) => {
+  const dir = process.env.VISUAL;
+  test.skip(!dir, 'VISUAL=出力先 のときのみ実行');
+  const shot = (n: string) => page.screenshot({ path: `${dir}/${n}.png` });
+  await page.clock.setFixedTime(at(0));
+  await page.goto('/');
+  await shot('01-welcome');
+  await page.getByTestId('start-onboarding').click();
+  await shot('02-intro');
+  await page.getByTestId('intro-next').click();
+  await page.getByTestId('intro-next').click();
+  await shot('02b-intro3');
+  await doWorkshop(page, { route: 'execute', action: '見込み顧客へ提案を1件送る', when: 'today', finish: false });
+  await page.goto('/#/workshop');
+  await page.getByRole('button', { name: 'Q07 現在の状態' }).count();
+  await shot('03-summary');
+  await page.getByTestId('finish-workshop').click();
+  await expect(page.getByTestId('today')).toBeVisible();
+  await page.waitForTimeout(3000);
+  await shot('04-today-planned');
+  await page.getByTestId('btn-start').click();
+  await shot('05-today-progress');
+  await page.goto('/#/settings');
+  await page.getByTestId('to-demo').click();
+  await expect(page.getByTestId('demo-banner')).toBeVisible();
+  await page.waitForTimeout(3000);
+  await shot('06-today-demo-done');
+  await page.goto('/#/growth');
+  await shot('07-growth');
+  await page.mouse.wheel(0, 900);
+  await page.waitForTimeout(300);
+  await shot('07b-growth-lower');
+  await page.goto('/#/compass');
+  await shot('08-compass');
+  await page.goto('/#/compass/lifeclock');
+  await shot('09-lifeclock-optin');
+  await page.getByTestId('lifeclock-enable').click();
+  await page.getByText('人生カレンダー（週）').click();
+  await page.getByText('90歳', { exact: true }).click();
+  await page.getByTestId('birth-date').fill('1988-04-01');
+  await page.getByTestId('birth-save').click();
+  await page.waitForTimeout(3000);
+  await shot('10-lifeclock');
+  await page.mouse.wheel(0, 500);
+  await page.waitForTimeout(300);
+  await shot('10b-lifeclock-cal');
+  await page.goto('/#/review');
+  await shot('11-review');
+  await page.goto('/#/workshop');
+  await shot('12-workshop-done');
+});

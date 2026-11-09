@@ -36,8 +36,17 @@ export function App() {
     })().catch(() => setError('この端末の保存領域を開けませんでした。プライベートブラウズを解除するか、ブラウザーの保存設定を確認してください。'));
   }, []);
   if (error) return <div className="app"><main className="main no-tabs"><div className="card banner warn" role="alert">{error}</div></main></div>;
-  if (!ready) return <div className="app"><main className="main no-tabs"><p className="muted">読み込み中…</p></main></div>;
-  return <AppProvider>{(route, loaded) => (loaded ? <Shell route={route} /> : <div className="app"><main className="main"><p className="muted">読み込み中…</p></main></div>)}</AppProvider>;
+  if (!ready) return <Splash />;
+  return <AppProvider>{(route, loaded) => (loaded ? <Shell route={route} /> : <Splash />)}</AppProvider>;
+}
+
+function Splash() {
+  return (
+    <div className="splash" role="status" aria-label="読み込み中">
+      <img src="./icon.svg" alt="" />
+      <span>{brand.brand.toUpperCase()}</span>
+    </div>
+  );
 }
 
 function Shell(props: { route: Route }) {
@@ -63,7 +72,7 @@ function Shell(props: { route: Route }) {
         {showTabs && <a className="iconbtn" href="#/settings" aria-label="設定・バックアップ・プライバシー">{icons.menu}</a>}
       </header>
       <main className={`main ${showTabs ? '' : 'no-tabs'}`} id="main">
-        {app.mode === 'demo' && <div className="banner demo" data-testid="demo-banner">デモデータ表示中（架空の内容・本人のデータではありません）</div>}
+        {app.mode === 'demo' && <div className="banner demo" data-testid="demo-banner">デモ表示中・架空のデータです</div>}
         {route.name === 'welcome' && <Welcome />}
         {route.name === 'workshop' && <Workshop />}
         {route.name === 'today' && <Today />}

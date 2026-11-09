@@ -44,16 +44,26 @@ export function Growth() {
 
       <section className="card layer a" data-testid="layer-action">
         <div className="eyebrow cyan">A 行動</div>
-        <p className="metric-big" data-testid="start-rate">{m.startRate === null ? '未計測' : `${pct(m.startRate)}%`}</p>
+        <div className="ring-wrap">
+          <StartRing started={m.startedDays} notStarted={m.notStartedDays} unknown={m.unknownDays} />
+          <div>
+            <p className="metric-big" data-testid="start-rate" style={{ margin: 0 }}>{m.startRate === null ? '未計測' : `${pct(m.startRate)}%`}</p>
+            <div className="ring-legend">
+              <span><i style={{ background: 'var(--cyan)' }} />着手 {m.startedDays}日</span>
+              <span><i style={{ background: 'var(--text-3)', opacity: 0.55 }} />未実行 {m.notStartedDays}日</span>
+              <span><i style={{ background: 'repeating-linear-gradient(90deg, var(--text-3) 0 2px, transparent 2px 5px)' }} />不明（未記録） {m.unknownDays}日</span>
+            </div>
+          </div>
+        </div>
         <p data-testid="start-rate-text">{startRateText(m)}</p>
         {m.lowCoverage && <p className="small banner warn">記録がない予定日が多いため、この着手率の信頼度は低めです。未記録は「やらなかった」という意味ではありません。</p>}
         <div className="statgrid">
           <div className="stat"><b>{m.plannedDays}</b><span>予定した日</span></div>
           <div className="stat"><b>{m.startedDays}</b><span>着手</span></div>
           <div className="stat"><b>{m.unknownDays}</b><span>不明</span></div>
-          <div className="stat"><b>{m.restDays}</b><span>回復日（分母外）</span></div>
-          <div className="stat"><b>{m.changedDays}</b><span>計画変更（分母外）</span></div>
-          <div className="stat"><b>{m.unplannedDays}</b><span>未計画（分母外）</span></div>
+          <div className="stat"><b>{m.restDays}</b><span>回復日<small>着手率の分母外</small></span></div>
+          <div className="stat"><b>{m.changedDays}</b><span>計画変更<small>着手率の分母外</small></span></div>
+          <div className="stat"><b>{m.unplannedDays}</b><span>未計画<small>着手率の分母外</small></span></div>
         </div>
         <div className="daystrip" aria-label="日ごとの状態">
           {daysShown.map(([d, c]) => (
@@ -142,5 +152,30 @@ function EvidenceSheet(props: { layer: EvidenceLayer; onClose: () => void }) {
         props.onClose();
       }}>保存する</AsyncButton>
     </Sheet>
+  );
+}
+
+/** 予定した日の内訳リング：着手（シアン）／未実行（灰）／不明（破線）。不明を失敗の色にしない。 */
+function StartRing(props: { started: number; notStarted: number; unknown: number }) {
+  const total = props.started + props.notStarted + props.unknown;
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  const gap = total > 1 ? 3 : 0;
+  let offset = 0;
+  const arcs = ([['started', props.started], ['notstarted', props.notStarted], ['unknown', props.unknown]] as const)
+    .filter(([, n]) => n > 0)
+    .map(([cls, n]) => {
+      const len = (n / total) * c;
+      const el = <circle key={cls} className={cls} cx="66" cy="66" r={r} fill="none" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${Math.max(0.1, len - gap)} ${c}`} strokeDashoffset={-offset} transform="rotate(-90 66 66)" />;
+      offset += len;
+      return el;
+    });
+  return (
+    <svg className="ring" viewBox="0 0 132 132" aria-hidden="true">
+      <circle className="track" cx="66" cy="66" r={r} fill="none" strokeWidth="10" />
+      {arcs}
+      <text x="66" y="66" textAnchor="middle" fontSize="22">{total ? `${props.started}/${props.started + props.notStarted}` : '—'}</text>
+      <text className="sub" x="66" y="86" textAnchor="middle" fontSize="10">{total ? '記録がある予定日' : '予定日なし'}</text>
+    </svg>
   );
 }

@@ -4,7 +4,7 @@ import * as repo from '../db/repo';
 import { computeLifeClock, HORIZON_MAX, HORIZON_MIN, HORIZON_PRESETS, lifeClockSummary, NOT_A_PREDICTION, REACHED_MESSAGE, validateHorizon, WEEKS_PER_YEAR, yearProgress, type LifeClockResult } from '../domain/lifeClock';
 import { isValidYmd, localDateOf } from '../domain/dates';
 import type { LifeTime, LifeTimeQuestionId } from '../domain/schema';
-import { AsyncButton, Choice, ConfirmTwoStep, TextField } from '../ui/kit';
+import { AsyncButton, Choice, ConfirmTwoStep, Ico, TextField } from '../ui/kit';
 
 const QUESTIONS: { id: LifeTimeQuestionId; text: string; gentle: string; kind: 'values' | 'weekly' }[] = [
   { id: 'LT01', text: '人生の最後に振り返ったとき、「やっておけばよかった」と思いたくないことは何ですか？', gentle: '将来の自分が「やっておいてよかった」と思えそうなことは何ですか？', kind: 'values' },
@@ -32,6 +32,7 @@ function OptIn() {
   const app = useApp();
   return (
     <div className="card hero" data-testid="lifeclock-optin">
+      <div className="lc-intro"><div className="hourglass">{Ico.hourglass}</div></div>
       <p>人生の時間は有限です。何歳まで生きるかは分かりません。この画面は、あなたが大切にしたい時間を考えるためのものです。</p>
       <ul className="small muted">
         <li>寿命・余命・死亡日を予測する機能ではありません。</li>
@@ -151,27 +152,37 @@ function WeeksCalendar(props: { result: LifeClockResult; horizon: number | null 
   }
   const horizon = props.horizon!;
   const lived = r.kind === 'exact' ? r.weeksLived : r.approxWeeksLived;
+  const ahead = r.kind === 'exact' ? r.weeksToMilestone : r.approxWeeksToMilestone ?? 0;
   const total = r.kind === 'exact' ? r.totalWeeks : horizon * WEEKS_PER_YEAR;
   const cols = WEEKS_PER_YEAR;
   const rows = Math.ceil(total / cols);
-  const cell = 6;
-  const gap = 1.5;
-  const decadeGap = 4;
-  const height = rows * (cell + gap) + Math.floor(rows / 10) * decadeGap;
+  const cell = 5;
+  const gap = 1.6;
+  const decadeGap = 6;
+  const left = 14;
+  const yOf = (row: number) => row * (cell + gap) + Math.floor(row / 10) * decadeGap;
+  const height = yOf(rows - 1) + cell;
   const rects: ReactElement[] = [];
   for (let i = 0; i < total; i++) {
     const row = Math.floor(i / cols);
     const col = i % cols;
-    const y = row * (cell + gap) + Math.floor(row / 10) * decadeGap;
-    rects.push(<rect key={i} x={col * (cell + gap)} y={y} width={cell} height={cell} rx={1.2} className={i < lived ? 'lived' : i === lived ? 'now' : 'ahead'} />);
+    const cls = i < lived ? `lived${Math.floor(row / 10) % 2 ? ' d1' : ''}` : i === lived ? 'now' : 'ahead';
+    rects.push(<rect key={i} x={left + col * (cell + gap)} y={yOf(row)} width={cell} height={cell} rx={1.4} className={cls} />);
   }
+  const labels: ReactElement[] = [];
+  for (let d = 0; d * 10 < rows; d++) labels.push(<text key={d} className="dlabel" x={0} y={yOf(d * 10) + cell}>{d * 10}</text>);
+  const approx = r.kind === 'approx' ? '約' : 'およそ';
   return (
     <div>
-      <p data-testid="weeks-summary">{summary}</p>
-      <p className="small faint">{r.kind === 'approx' ? '生年のみのため、概算（約）で表示しています。' : ''}1マス＝1週。1行＝1年、10年ごとに間隔を空けています。塗りつぶし＝これまでの時間、枠線＝仮に置いた節目までの時間。</p>
-      <svg className="lifecal" viewBox={`0 0 ${cols * (cell + gap)} ${height}`} role="img" aria-label={summary}>{rects}</svg>
-      <div className="legend" style={{ marginTop: 6 }}><span><i style={{ background: 'var(--gold)' }} />これまで</span><span><i style={{ background: 'var(--cyan)' }} />今週</span><span><i />仮の節目まで</span></div>
-      <p style={{ marginTop: 10 }}>今日、どんな時間を大切にしますか？</p>
+      <div className="lc-stats">
+        <div><span>これまでの時間</span><b>{approx}{lived.toLocaleString()}週</b></div>
+        <div><span>{horizon}歳の仮の節目まで</span><b>{approx}{ahead.toLocaleString()}週</b></div>
+      </div>
+      <p className="small muted" data-testid="weeks-summary">{summary}</p>
+      <svg className="lifecal" viewBox={`0 0 ${left + cols * (cell + gap)} ${height}`} role="img" aria-label={summary}>{labels}{rects}</svg>
+      <div className="legend" style={{ marginTop: 8 }}><span><i style={{ background: 'var(--gold)', opacity: 0.62 }} />これまで</span><span><i style={{ background: 'var(--cyan)' }} />今週</span><span><i style={{ background: 'rgba(185,195,218,.15)' }} />仮の節目まで</span></div>
+      <p className="small faint" style={{ marginTop: 6 }}>{r.kind === 'approx' ? '生年のみのため、概算（約）で表示しています。' : ''}1マス＝1週、1行＝1年、左の数字は年齢（10年ごと）。</p>
+      <p style={{ marginTop: 12, fontWeight: 650 }}>今日、どんな時間を大切にしますか？</p>
     </div>
   );
 }

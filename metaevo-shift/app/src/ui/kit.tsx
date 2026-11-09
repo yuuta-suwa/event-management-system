@@ -205,3 +205,29 @@ export const icons = {
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c1.2-3.5 4-5 7-5s5.8 1.5 7 5" strokeLinecap="round" /></svg>
   ),
 };
+
+/** 線画アイコン（装飾用。意味はテキストで伝える） */
+const P = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+export const Ico = {
+  play: <svg className="ico" viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M8 5.5v13l10.5-6.5z" fill="currentColor" /></svg>,
+  check: <svg className="ico" viewBox="0 0 24 24" aria-hidden="true"><path {...P} strokeWidth={2.4} d="M5 12.5l4.5 4.5L19 7.5" /></svg>,
+  pause: <svg className="ico" viewBox="0 0 24 24" aria-hidden="true"><path {...P} strokeWidth={2.2} d="M9 6v12M15 6v12" /></svg>,
+  advance: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M4 17l6-6 4 4 6-7" /><path {...P} d="M15 8h5v5" /></svg>,
+  prepare: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M4 19.5h16M6.5 16V9.5M12 16V6M17.5 16v-4" /></svg>,
+  recover: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z" /></svg>,
+  shuffle: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M4 7h3.5c4 0 5 10 9 10H20M4 17h3.5c1.6 0 2.7-1.6 3.5-3.6M13 9.6C13.8 8 14.8 7 16.5 7H20M17.5 4.5 20 7l-2.5 2.5M17.5 14.5 20 17l-2.5 2.5" /></svg>,
+  bolt: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M13 3 5.5 13.5H12L11 21l7.5-10.5H12z" /></svg>,
+  question: <svg viewBox="0 0 24 24" aria-hidden="true"><circle {...P} cx="12" cy="12" r="9" /><path {...P} d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.6M12 16.8v.2" /></svg>,
+  edit: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" /></svg>,
+  cue: <svg viewBox="0 0 24 24" aria-hidden="true"><circle {...P} cx="12" cy="13" r="7.5" /><path {...P} d="M12 9.5V13l2.5 1.6M9.5 2.5h5" /></svg>,
+  lock: <svg viewBox="0 0 24 24" aria-hidden="true"><rect {...P} x="5" y="10.5" width="14" height="10" rx="2.5" /><path {...P} d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></svg>,
+  seed: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M12 20v-7M12 13C12 8.5 8.5 6 4.5 6c0 4.5 3 7 7.5 7zM12 11c0-3.5 2.8-6 7-6 0 4-2.8 6-7 6" /></svg>,
+  moonRest: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M18.5 14A7 7 0 0 1 10 5.5 7 7 0 1 0 18.5 14z" /><path {...P} d="M16 3.5v3M14.5 5h3" /></svg>,
+  device: <svg viewBox="0 0 24 24" aria-hidden="true"><rect {...P} x="6.5" y="2.5" width="11" height="19" rx="2.5" /><path {...P} d="M10.5 18.5h3" /></svg>,
+  shield: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M12 3 5 6v5.5c0 4.4 3 7.8 7 9.5 4-1.7 7-5.1 7-9.5V6z" /><path {...P} d="M9 12l2 2 4-4" /></svg>,
+  save: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M5 19.5h14" /></svg>,
+  heart: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M12 19.5S4.5 15 4.5 9.6A4 4 0 0 1 12 7.5a4 4 0 0 1 7.5 2.1C19.5 15 12 19.5 12 19.5z" /></svg>,
+  layers: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M12 4 3.5 8.5 12 13l8.5-4.5zM3.5 12.5 12 17l8.5-4.5M3.5 16.5 12 21l8.5-4.5" /></svg>,
+  flask: <svg viewBox="0 0 24 24" aria-hidden="true"><path {...P} d="M9.5 3.5h5M10.5 3.5v5.5L5 18.5A1.8 1.8 0 0 0 6.6 21h10.8a1.8 1.8 0 0 0 1.6-2.5L13.5 9V3.5M7.5 15h9" /></svg>,
+  hourglass: <svg viewBox="0 0 64 64" aria-hidden="true"><path {...P} strokeWidth={1.6} d="M18 8h28M18 56h28M21 8c0 13 22 15 22 24S21 43 21 56M43 8c0 13-22 15-22 24s22 11 22 24" /><path d="M26 50c2-3 10-3 12 0z" fill="currentColor" opacity=".5" /></svg>,
+};
