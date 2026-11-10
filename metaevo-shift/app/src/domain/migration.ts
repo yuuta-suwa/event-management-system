@@ -4,11 +4,12 @@
  * 保存（トランザクション）は db/backup.ts が担当し、途中失敗時は既存データを変更しない。
  */
 import { defaultLifeTime, exportV20Schema, exportV21Schema, SCHEMA_VERSION, type ExportV21 } from './schema';
+import { checkIntegrity, emptyExecutionPlanning, executionPlanningSchema, type ExecutionPlanning, type IntegrityReport } from './planning';
 
 export const MAX_BACKUP_BYTES = 10 * 1024 * 1024;
 
 export type ImportResult =
-  | { ok: true; data: ExportV21; migratedFrom: '2.0' | null; summary: ImportSummary }
+  | { ok: true; data: ExportV21; migratedFrom: '2.0' | null; summary: ImportSummary; executionPlanning: ExecutionPlanning; hadExecutionPlanning: boolean; integrity: IntegrityReport }
   | { ok: false; error: string };
 
 export interface ImportSummary {
@@ -20,6 +21,10 @@ export interface ImportSummary {
   reviews: number;
   workshopStatus: string;
   lifeTimeEnabled: boolean;
+  planNodes?: number;
+  scheduleBlocks?: number;
+  executionEvents?: number;
+  outcomeRecords?: number;
 }
 
 export function summarize(d: ExportV21): ImportSummary {
@@ -65,15 +70,27 @@ export function parseBackup(text: string, byteSize?: number): ImportResult {
     const migrated = migrateV20toV21(raw as Record<string, unknown>);
     const v21 = exportV21Schema.safeParse(migrated);
     if (!v21.success) return { ok: false, error: `v2.1への変換後の検証に失敗：${firstIssue(v21.error.issues)}` };
-    return { ok: true, data: v21.data as ExportV21, migratedFrom: '2.0', summary: summarize(v21.data as ExportV21) };
+    return withPlanning(raw as Record<string, unknown>, v21.data as ExportV21, '2.0');
   }
   if (version === SCHEMA_VERSION) {
     const v21 = exportV21Schema.safeParse(raw);
     if (!v21.success) return { ok: false, error: `データの検証に失敗：${firstIssue(v21.error.issues)}` };
-    return { ok: true, data: v21.data as ExportV21, migratedFrom: null, summary: summarize(v21.data as ExportV21) };
+    return withPlanning(raw as Record<string, unknown>, v21.data as ExportV21, null);
   }
   if (typeof version === 'string') {
     return { ok: false, error: `未対応のデータバージョン（${version}）です。アプリを更新してから復元してください。元のファイルはそのまま保管してください。` };
   }
   return { ok: false, error: 'schemaVersionがありません。MetaEVO Shiftのバックアップファイルではない可能性があります。' };
+}
+
+/** v2.4 executionPlanning の検証。旧バックアップ（領域なし）は空の領域で初期化する（非破壊） */
+function withPlanning(raw: Record<string, unknown>, data: ExportV21, migratedFrom: '2.0' | null): ImportResult {
+  const had = raw.executionPlanning !== undefined;
+  const ep = executionPlanningSchema.safeParse(had ? raw.executionPlanning : emptyExecutionPlanning());
+  if (!ep.success) return { ok: false, error: `行動計画データ（executionPlanning）の検証に失敗：${firstIssue(ep.error.issues)}` };
+  const planning = ep.data as ExecutionPlanning;
+  const integrity = checkIntegrity(planning, { goalIds: data.goals.map((g) => g.id), hasLifeCompass: !!data.lifeCompass });
+  if (integrity.errors.length) return { ok: false, error: `行動計画データの整合性エラー：${integrity.errors[0]}${integrity.errors.length > 1 ? ` ほか${integrity.errors.length - 1}件` : ''}` };
+  const summary = { ...summarize(data), planNodes: planning.planNodes.length, scheduleBlocks: planning.scheduleBlocks.length, executionEvents: planning.executionEvents.length, outcomeRecords: planning.outcomeRecords.length };
+  return { ok: true, data, migratedFrom, summary, executionPlanning: planning, hadExecutionPlanning: had, integrity };
 }

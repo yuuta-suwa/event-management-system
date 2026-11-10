@@ -8,6 +8,8 @@ import type { AppEvent, DayMode, DayPlan } from '../domain/schema';
 import { AsyncButton, Choice, Ico, Sheet, TextField } from '../ui/kit';
 import { installContext } from '../ui/platform';
 import { SafetySheet } from './Safety';
+import { activeBlocks, blockExecState, dayExecMetrics, fmtMinute, parseHm } from '../domain/planning';
+import { executionSummaryText, primaryActionIdFor } from '../db/bridge';
 
 const STATUS_LABEL: Record<string, string> = {
   planned: '予定', in_progress: '実行中', paused: '中断中', completed: '完了', not_started: '未実行', changed: '計画を変更', rest: '回復する日', unknown: '不明', unplanned: '未計画',
@@ -135,6 +137,8 @@ export function Today() {
           </div>
         </>
       )}
+
+      {workshopDone && <TodayPlanLink />}
 
       {advice.ruleId !== 'R_NORMAL' && !sheet && workshopDone && (
         <div className="card advice" data-testid={`advice-${advice.ruleId}`}>
@@ -478,9 +482,12 @@ export function EveningSheet(props: { onClose: () => void; date?: string }) {
   const [alignment, setAlignment] = useState<'yes' | 'partly' | 'no' | null>(null);
   const [tomorrow, setTomorrow] = useState('');
   const [ltNote, setLtNote] = useState('');
+  const em = dayExecMetrics(app.data.executionPlanning, date, primaryActionIdFor(app.data, date));
+  const execSummary = em.validBlocks || em.movedBlocks ? executionSummaryText(em) : null;
   return (
     <Sheet title="夜の確認（1〜2分）" eyebrow={formatJpDate(date)} onClose={props.onClose} testId="evening-sheet">
       {plan?.importantAction && <p className="small muted">予定した行動：{plan.importantAction}</p>}
+      {execSummary && <p className="small banner info" data-testid="ev-exec-summary">今日の計画：{execSummary}　<a href="#/today/plan">詳しく</a></p>}
       <Choice legend="予定した重要行動は？" options={EVENING_OPTIONS} value={status} onChange={setStatus} />
       <TextField label="具体的に進んだこと（任意）" value={progress} onChange={setProgress} placeholder="例：提案書を送った" testId="ev-progress" />
       <TextField label="できるようになったこと・学び（任意・1行）" value={learning} onChange={setLearning} testId="ev-learning" />
@@ -501,11 +508,35 @@ export function EveningSheet(props: { onClose: () => void; date?: string }) {
       <AsyncButton className="btn primary block" testId="ev-save" onClick={async () => {
         await repo.saveEveningReview({
           opId, date, status, progress, learning, outcomeText, outcomeQuantity: qty === '' ? null : Number(qty), outcomeUnit: unit || null,
-          alignment, tomorrowAction: tomorrow.trim() || null, lifeTimeNote: ltNote.trim() || null,
+          alignment, tomorrowAction: tomorrow.trim() || null, lifeTimeNote: ltNote.trim() || null, executionSummary: execSummary,
         });
         app.toast(`夜の確認を保存しました（${localTimeOf(new Date(), app.tz)}）`);
         props.onClose();
       }}>保存する</AsyncButton>
     </Sheet>
+  );
+}
+
+/** v2.4：今日の計画・優先順位への入口（最重要行動より下に置き、最初の一歩を妨げない） */
+function TodayPlanLink() {
+  const app = useApp();
+  const ep = app.data.executionPlanning;
+  const blocks = activeBlocks(ep.scheduleBlocks, app.today);
+  const nowMin = parseHm(localTimeOf(new Date(), app.tz)) ?? 0;
+  const next = blocks.find((b) => b.startMinute + b.durationMinutes > nowMin && blockExecState(ep.executionEvents, b.id) !== 'completed');
+  const title = next ? ep.planNodes.find((n) => n.id === next.actionId)?.title : null;
+  return (
+    <section className="card plan-link" data-testid="today-plan-link">
+      <div className="row">
+        <div className="grow">
+          <div className="eyebrow">今日の計画</div>
+          <p style={{ margin: 0 }}>{blocks.length ? `予定 ${blocks.length}件${next ? `・次 ${fmtMinute(next.startMinute)} ${title}` : ''}` : '時間割はまだ空です'}</p>
+        </div>
+      </div>
+      <div className="btnrow" style={{ marginTop: 10 }}>
+        <a className="btn sm" href="#/today/plan" data-testid="open-schedule">時間割（7〜25時）</a>
+        <a className="btn sm" href="#/today/priority" data-testid="open-priority">優先順位</a>
+      </div>
+    </section>
   );
 }

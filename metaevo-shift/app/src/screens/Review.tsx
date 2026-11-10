@@ -9,6 +9,7 @@ import { newId } from '../domain/id';
 import type { AppEvent, HypothesisStatus, PlanStatus, ReviewKind } from '../domain/schema';
 import { AsyncButton, Choice, Sheet, TextField } from '../ui/kit';
 import { EveningSheet } from './Today';
+import { PlanReview } from './planning/PlanReview';
 
 const KIND_LABEL: Partial<Record<AppEvent['kind'], string>> = {
   PLAN_CREATED: '計画', ACTION_STARTED: '開始', ACTION_PAUSED: '一時停止', ACTION_COMPLETED: '完了', INTERNAL_SWITCH: '別のことへの切替（内的）',
@@ -83,6 +84,8 @@ export function Review() {
           })}
         </ul>
       </section>
+      <PlanReview />
+
       <section className="card">
         <h2>レビュー</h2>
         <div className="btnrow">

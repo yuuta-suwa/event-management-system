@@ -12,6 +12,7 @@ import {
 import { addDays, localDateOf } from '../domain/dates';
 import { newId } from '../domain/id';
 import { finalizeWorkshop, prefillFromBranch, type Answer, type Answers } from '../domain/workshop';
+import { EXECUTION_PLANNING_VERSION, FEATURE_VERSION, type ExecutionPlanning } from '../domain/planning';
 
 export const clock = { now: (): Date => new Date() };
 
@@ -36,6 +37,7 @@ export interface AppData {
   events: AppEvent[];
   evidence: Evidence[];
   reviews: Review[];
+  executionPlanning: ExecutionPlanning;
 }
 
 const KV_DEFAULTS = () => ({
@@ -71,7 +73,7 @@ export async function ensureInitialized(): Promise<void> {
 
 export async function loadAll(): Promise<AppData> {
   const d = db();
-  return d.transaction('r', [d.kv, ...d.collections], async () => {
+  return d.transaction('r', [...d.allTables], async () => {
     const meta = await getKv<{ schemaVersion: string; createdAt: string }>('meta');
     const [goals, experiments, dayPlans, events, evidence, reviews] = await Promise.all([
       d.goals.toArray(), d.experiments.toArray(), d.dayPlans.toArray(), d.events.toArray(), d.evidence.toArray(), d.reviews.toArray(),
@@ -88,6 +90,15 @@ export async function loadAll(): Promise<AppData> {
       lifeTime: await getKv<LifeTime>('lifeTime'),
       appMeta: await getKv<AppMeta>('appMeta'),
       goals, experiments, dayPlans, events, evidence, reviews,
+      executionPlanning: {
+        version: EXECUTION_PLANNING_VERSION,
+        featureVersion: FEATURE_VERSION,
+        planNodes: await d.planNodes.toArray(),
+        scheduleBlocks: await d.scheduleBlocks.toArray(),
+        executionEvents: (await d.executionEvents.toArray()).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
+        ifThenRules: await d.ifThenRules.toArray(),
+        outcomeRecords: await d.outcomeRecords.toArray(),
+      },
     };
   });
 }
@@ -228,7 +239,9 @@ export async function upsertPlan(input: PlanInput): Promise<DayPlan> {
         displacedActivity: input.displacedActivity !== undefined ? input.displacedActivity : existing.displacedActivity ?? null,
         plannedMinutes: input.plannedMinutes !== undefined ? input.plannedMinutes : existing.plannedMinutes ?? null,
         note: input.note !== undefined ? input.note : existing.note ?? null,
-      };
+        // v2.4：TODOとのリンクは行動名が変わったら解除（正本は dayPlan のみ）
+        primaryActionId: changed ? null : (existing as { primaryActionId?: string | null }).primaryActionId ?? null,
+      } as DayPlan;
       await d.dayPlans.put(next);
       if (existing.importantAction && changed) {
         await d.events.add(mkEvent('REPLAN', today, existing.id, { previous: prev, next: { importantAction: next.importantAction, startCue: next.startCue }, reason: input.replanReason ?? null, forDate: input.date }));
@@ -288,12 +301,28 @@ export async function setDayMode(date: string, mode: DayMode, restNote?: string 
 
 async function transition(planId: string, from: PlanStatus[], to: PlanStatus, kind: EventKind, payload: Record<string, unknown> = {}): Promise<boolean> {
   const d = db();
-  return d.transaction('rw', [d.dayPlans, d.events, d.kv], async () => {
+  return d.transaction('rw', [d.dayPlans, d.events, d.kv, d.executionEvents, d.scheduleBlocks], async () => {
     const plan = await d.dayPlans.get(planId);
     if (!plan || !from.includes(plan.status)) return false; // 冪等：状態が合わなければ何もしない
     await d.dayPlans.put({ ...plan, status: to });
     await d.events.add(mkEvent(kind, plan.localDate, plan.id, payload));
+    if (kind === 'ACTION_STARTED' || kind === 'ACTION_RESUMED') await mirrorPrimaryExecution(plan, 'started');
     return true;
+  });
+}
+
+/**
+ * v2.4 LegacyBridge：v2.3の最重要行動がTODOにリンクされていれば、TODO側にも実行記録を追記する。
+ * 正本は dayPlan。予定枠がその日に1つだけある場合はその枠に記録する。
+ */
+async function mirrorPrimaryExecution(plan: DayPlan, kind: 'started' | 'completed'): Promise<void> {
+  const actionId = (plan as { primaryActionId?: string | null }).primaryActionId;
+  if (!actionId) return;
+  const d = db();
+  const blocks = (await d.scheduleBlocks.where('planDate').equals(plan.localDate).toArray()).filter((b) => b.actionId === actionId && b.state === 'placed');
+  await d.executionEvents.add({
+    id: newId('xe'), actionId, blockId: blocks.length === 1 ? blocks[0].id : null, planDate: plan.localDate, kind,
+    reason: null, note: 'v2.3の今日の最重要行動から記録', criteriaMet: null, evidence: null, resumeAt: null, firstStep: null, occurredAt: clock.now().toISOString(),
   });
 }
 
@@ -309,10 +338,11 @@ export function resumeAction(planId: string, payload: Record<string, unknown> = 
 
 export async function completeAction(planId: string, opts: { what?: string | null; minutes?: number | null } = {}): Promise<boolean> {
   const d = db();
-  return d.transaction('rw', [d.dayPlans, d.events, d.evidence, d.kv, d.experiments], async () => {
+  return d.transaction('rw', [d.dayPlans, d.events, d.evidence, d.kv, d.experiments, d.executionEvents, d.scheduleBlocks], async () => {
     const plan = await d.dayPlans.get(planId);
     if (!plan || !['in_progress', 'paused', 'planned'].includes(plan.status)) return false;
     await d.dayPlans.put({ ...plan, status: 'completed' });
+    await mirrorPrimaryExecution(plan, 'completed');
     await d.events.add(mkEvent('ACTION_COMPLETED', plan.localDate, plan.id, { minutes: opts.minutes ?? null, what: opts.what ?? null }));
     if (opts.what?.trim()) {
       await addEvidenceInTx({ layer: 'action', description: opts.what.trim(), experimentId: plan.experimentId ?? null, localDate: plan.localDate, source: 'self_report' });
@@ -450,6 +480,8 @@ export interface EveningInput {
   tomorrowAction?: string | null;
   tomorrowCue?: string | null;
   lifeTimeNote?: string | null;
+  /** v2.4：その日の実行計画の要約（既存の振り返りを変えずに追記） */
+  executionSummary?: string | null;
 }
 
 export async function saveEveningReview(input: EveningInput): Promise<boolean> {
@@ -463,6 +495,7 @@ export async function saveEveningReview(input: EveningInput): Promise<boolean> {
       hasLearning: !!input.learning?.trim(),
       hasOutcome: !!(input.outcomeText?.trim() || typeof input.outcomeQuantity === 'number'),
       lifeTimeNote: input.lifeTimeNote ?? null,
+      ...(input.executionSummary ? { executionSummary: input.executionSummary } : {}),
     }, input.opId);
     const added = await addEventOnce(ev);
     if (!added) return false;
@@ -756,8 +789,8 @@ export async function deleteLifeTimeData(): Promise<void> {
 // ---------------- 全削除 ----------------
 export async function deleteAllData(): Promise<void> {
   const d = db();
-  await d.transaction('rw', [d.kv, ...d.collections], async () => {
-    await Promise.all([d.kv.clear(), ...d.collections.map((t) => t.clear())]);
+  await d.transaction('rw', [...d.allTables], async () => {
+    await Promise.all(d.allTables.map((t) => t.clear()));
   });
   await ensureInitialized();
 }

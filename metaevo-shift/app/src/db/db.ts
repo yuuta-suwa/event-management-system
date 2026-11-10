@@ -5,6 +5,7 @@
  */
 import Dexie, { type EntityTable } from 'dexie';
 import type { AppEvent, DayPlan, Evidence, Experiment, Goal, Review } from '../domain/schema';
+import type { ExecutionEvent, IfThenRule, OutcomeRecord, PlanNode, ScheduleBlock } from '../domain/planning';
 
 export const PERSONAL_DB = 'metaevo-shift';
 export const DEMO_DB = 'metaevo-shift-demo';
@@ -25,6 +26,12 @@ export class AppDB extends Dexie {
   events!: EntityTable<AppEvent, 'id'>;
   evidence!: EntityTable<Evidence, 'id'>;
   reviews!: EntityTable<Review, 'id'>;
+  // v2.4 executionPlanning（追加領域。既存テーブルは変更しない）
+  planNodes!: EntityTable<PlanNode, 'id'>;
+  scheduleBlocks!: EntityTable<ScheduleBlock, 'id'>;
+  executionEvents!: EntityTable<ExecutionEvent, 'id'>;
+  ifThenRules!: EntityTable<IfThenRule, 'id'>;
+  outcomeRecords!: EntityTable<OutcomeRecord, 'id'>;
 
   constructor(name: string) {
     super(name);
@@ -37,6 +44,22 @@ export class AppDB extends Dexie {
       evidence: 'id, layer, goalId, experimentId',
       reviews: 'id, reviewKind',
     });
+    // v2.4：新しいテーブルを追加するだけの非破壊アップグレード（既存データは移動・変換しない）
+    this.version(2).stores({
+      planNodes: 'id, parentId, kind',
+      scheduleBlocks: 'id, planDate, actionId',
+      executionEvents: 'id, actionId, blockId, planDate',
+      ifThenRules: 'id',
+      outcomeRecords: 'id, goalNodeId',
+    });
+  }
+
+  get planningTables() {
+    return [this.planNodes, this.scheduleBlocks, this.executionEvents, this.ifThenRules, this.outcomeRecords] as const;
+  }
+
+  get allTables() {
+    return [this.kv, ...this.collections, ...this.planningTables] as const;
   }
 
   get collections() {

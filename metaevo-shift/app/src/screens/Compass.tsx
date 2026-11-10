@@ -77,6 +77,12 @@ export function Compass() {
         />
       </section>
 
+      <a className="card hero" href="#/compass/plan" style={{ display: 'block', textDecoration: 'none', color: 'inherit' }} data-testid="open-plantree">
+        <div className="eyebrow">目標から行動へ</div>
+        <h2 style={{ marginBottom: 4 }}>人生の軸から、今日のTODOまで分解する</h2>
+        <p className="small muted" style={{ margin: 0 }}>目標 → 中間成果 → TODO を自由に枝分かれ。{data.executionPlanning.planNodes.filter((n) => !n.archivedAt).length}ノード →</p>
+      </a>
+
       <a className="card" href="#/compass/lifeclock" style={{ display: 'block', textDecoration: 'none', color: 'inherit' }} data-testid="open-lifeclock">
         <div className="eyebrow">任意機能</div>
         <h2 style={{ marginBottom: 4 }}>人生の時間｜LIFE CLOCK</h2>

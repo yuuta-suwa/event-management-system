@@ -5,6 +5,7 @@ import { computeActionMetrics, computeAlignment, computeOutcomes, evidenceDate, 
 import { addDays, formatJpDate, parseYmd } from '../domain/dates';
 import type { EvidenceLayer } from '../domain/schema';
 import { AsyncButton, Choice, Sheet, TextField } from '../ui/kit';
+import { GoalOutcomes } from './planning/GoalOutcomes';
 
 type Period = 'cycle' | 'last7' | 'all';
 
@@ -120,6 +121,8 @@ export function Growth() {
         {alignment.notes.length > 0 && <ul className="list small">{alignment.notes.slice(-3).reverse().map((e) => <li key={e.id}>{e.description}</li>)}</ul>}
         <button className="btn sm" onClick={() => setAdd('alignment')}>気づきを記録</button>
       </section>
+
+      <GoalOutcomes />
 
       {add && <EvidenceSheet layer={add} onClose={() => setAdd(null)} />}
     </div>

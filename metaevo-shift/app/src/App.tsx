@@ -12,12 +12,15 @@ import { LifeClock } from './screens/LifeClock';
 import { Growth } from './screens/Growth';
 import { Review } from './screens/Review';
 import { Settings } from './screens/Settings';
+import { PlanTree } from './screens/planning/PlanTree';
+import { Priority } from './screens/planning/Priority';
+import { Schedule } from './screens/planning/Schedule';
 import brand from './spec/BRAND_CONFIG.json';
 import { cycleDay } from './domain/reviews';
 
 const TABS = [
-  { name: 'today', label: '今日', href: '#/today', icon: icons.today, match: ['today'] },
-  { name: 'compass', label: '人生の軸', href: '#/compass', icon: icons.compass, match: ['compass', 'lifeclock'] },
+  { name: 'today', label: '今日', href: '#/today', icon: icons.today, match: ['today', 'schedule', 'priority'] },
+  { name: 'compass', label: '人生の軸', href: '#/compass', icon: icons.compass, match: ['compass', 'lifeclock', 'plantree'] },
   { name: 'growth', label: '成長', href: '#/growth', icon: icons.growth, match: ['growth'] },
   { name: 'review', label: '振り返り', href: '#/review', icon: icons.review, match: ['review'] },
 ] as const;
@@ -78,6 +81,9 @@ function Shell(props: { route: Route }) {
         {route.name === 'today' && <Today />}
         {route.name === 'compass' && <Compass />}
         {route.name === 'lifeclock' && <LifeClock />}
+        {route.name === 'plantree' && <PlanTree focusId={route.nodeId} />}
+        {route.name === 'schedule' && <Schedule />}
+        {route.name === 'priority' && <Priority />}
         {route.name === 'growth' && <Growth />}
         {route.name === 'review' && <Review />}
         {route.name === 'settings' && <Settings />}

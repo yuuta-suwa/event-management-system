@@ -13,6 +13,9 @@ export type Route =
   | { name: 'today'; edit?: boolean }
   | { name: 'compass' }
   | { name: 'lifeclock' }
+  | { name: 'plantree'; nodeId?: string }
+  | { name: 'schedule' }
+  | { name: 'priority' }
   | { name: 'growth' }
   | { name: 'review'; kind?: string }
   | { name: 'settings' };
@@ -23,11 +26,11 @@ export function parseHash(hash: string): Route {
   switch (a) {
     case 'welcome': return { name: 'welcome' };
     case 'workshop': return { name: 'workshop' };
-    case 'compass': return b === 'lifeclock' ? { name: 'lifeclock' } : { name: 'compass' };
+    case 'compass': return b === 'lifeclock' ? { name: 'lifeclock' } : b === 'plan' ? { name: 'plantree', nodeId: h.split('/')[2] || undefined } : { name: 'compass' };
     case 'growth': return { name: 'growth' };
     case 'review': return { name: 'review', kind: b };
     case 'settings': return { name: 'settings' };
-    case 'today': return { name: 'today', edit: b === 'edit' };
+    case 'today': return b === 'plan' ? { name: 'schedule' } : b === 'priority' ? { name: 'priority' } : { name: 'today', edit: b === 'edit' };
     default: return { name: 'today' };
   }
 }
@@ -35,6 +38,9 @@ export function parseHash(hash: string): Route {
 export function hrefOf(r: Route): string {
   switch (r.name) {
     case 'lifeclock': return '#/compass/lifeclock';
+    case 'plantree': return r.nodeId ? `#/compass/plan/${r.nodeId}` : '#/compass/plan';
+    case 'schedule': return '#/today/plan';
+    case 'priority': return '#/today/priority';
     case 'review': return r.kind ? `#/review/${r.kind}` : '#/review';
     case 'today': return r.edit ? '#/today/edit' : '#/today';
     default: return `#/${r.name}`;
@@ -61,6 +67,9 @@ export interface Derived {
   /** LIFE CLOCK から今日の行動へ渡す一時情報（保存しない） */
   pendingLink: { reflectionId: string | null; reason: string | null } | null;
   setPendingLink: (v: { reflectionId: string | null; reason: string | null } | null) => void;
+  /** 目標ツリーの「元に戻す」（直前の操作の前の状態） */
+  undo: { label: string; nodes: import('./domain/planning').PlanNode[] } | null;
+  setUndo: (v: { label: string; nodes: import('./domain/planning').PlanNode[] } | null) => void;
 }
 
 const Ctx = createContext<Derived | null>(null);
@@ -91,6 +100,7 @@ export function AppProvider(props: { children: (route: Route, ready: boolean) =>
   const [route, setRoute] = useState<Route>(() => parseHash(location.hash));
   const [toastMessage, setToast] = useState<string | null>(null);
   const [pendingLink, setPendingLink] = useState<Derived['pendingLink']>(null);
+  const [undo, setUndo] = useState<Derived['undo']>(null);
   const tz = data?.preferences.timeZone;
   const today = useToday(tz);
 
@@ -151,8 +161,10 @@ export function AppProvider(props: { children: (route: Route, ready: boolean) =>
       clearToast,
       pendingLink,
       setPendingLink,
+      undo,
+      setUndo,
     };
-  }, [data, today, navigate, toastMessage, clearToast, pendingLink]);
+  }, [data, today, navigate, toastMessage, clearToast, pendingLink, undo]);
 
   return <Ctx.Provider value={derived}>{props.children(route, !!derived)}</Ctx.Provider>;
 }

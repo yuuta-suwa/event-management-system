@@ -517,3 +517,93 @@ body::after {
 .list select { max-width: none; flex: 1 1 45%; min-width: 9.5em; }
 .slide-stage .slide-enter { animation-duration: 0.35s; }
 .wk-head .grow { flex: 1; }
+
+/* ===================== v2.4 行動設計 ===================== */
+.crumbs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 0.8rem; color: var(--text-3); margin: 4px 0 8px; }
+.crumbs > * + *::before { content: '›'; margin: 0 6px 0 2px; color: var(--text-3); }
+.crumbs a { color: var(--cyan); text-decoration: none; min-height: 28px; display: inline-flex; align-items: center; }
+.crumbs .broken, .tag.broken { color: var(--danger); }
+.kind { display: inline-flex; align-items: center; font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: 6px; letter-spacing: 0.04em; flex: 0 0 auto; }
+.kind-goal { background: var(--gold-soft); color: var(--gold-strong); border: 1px solid rgba(214, 177, 106, 0.45); }
+.kind-milestone { background: rgba(167, 183, 255, 0.12); color: #b9c6ff; border: 1px solid rgba(167, 183, 255, 0.35); }
+.kind-step { background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border-strong); }
+.kind-action { background: var(--cyan-soft); color: var(--cyan); border: 1px solid rgba(69, 216, 234, 0.4); }
+:root[data-theme='light'] .kind-goal { color: var(--gold); }
+:root[data-theme='light'] .kind-milestone { color: #3a4ea8; }
+.faint-tag { opacity: 0.7; border-style: dashed; }
+
+/* ツリー（スマホ） */
+.tree, .tree ul { list-style: none; margin: 0; padding: 0; }
+.tree { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 4px; margin-bottom: 14px; }
+.tree-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 10px; min-height: 48px; }
+.tree-row:hover { background: rgba(255, 255, 255, 0.03); }
+.tree ul { border-left: 1px dashed var(--border-strong); margin-left: 22px; }
+.twisty, .twisty-sp { width: 32px; min-width: 32px; height: 44px; display: inline-flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--text-3); font-size: 0.9rem; cursor: pointer; }
+.tree-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; background: none; border: 0; color: var(--text); font: inherit; text-align: left; padding: 6px 0; min-height: 44px; cursor: pointer; }
+.tree-title .t { overflow-wrap: anywhere; }
+.node-meta { display: inline-flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.node-meta .tag { margin: 0; font-size: 0.66rem; }
+.add-child { min-width: 40px; min-height: 40px; font-size: 1.1rem; color: var(--gold); }
+
+/* マインドマップ（PC） */
+.mm-scroll { overflow: auto; padding: 8px 4px 16px; margin-bottom: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.mm, .mm ul { list-style: none; margin: 0; padding: 0; display: flex; }
+.mm li { display: flex; align-items: center; position: relative; padding: 6px 0; }
+.mm ul { flex-direction: column; justify-content: center; padding-left: 28px; position: relative; }
+.mm ul::before { content: ''; position: absolute; left: 0; top: 50%; width: 14px; border-top: 1px solid rgba(214, 177, 106, 0.55); }
+.mm ul > li::before { content: ''; position: absolute; left: -14px; width: 14px; top: 50%; border-top: 1px solid rgba(214, 177, 106, 0.55); }
+.mm ul > li::after { content: ''; position: absolute; left: -14px; top: 0; bottom: 0; border-left: 1px solid rgba(214, 177, 106, 0.55); }
+.mm ul > li:first-child::after { top: 50%; }
+.mm ul > li:last-child::after { bottom: 50%; }
+.mm ul > li:only-child::after { display: none; }
+.mm-node { background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 12px; padding: 6px 10px; min-width: 170px; max-width: 240px; box-shadow: var(--shadow); }
+.mm-node .tree-title { min-height: 32px; padding: 2px 0; }
+.mm-root { background: linear-gradient(160deg, var(--navy-800), var(--navy-850)); border-color: rgba(214, 177, 106, 0.6); color: var(--gold-strong); font-weight: 750; max-width: 200px; }
+:root[data-theme='light'] .mm-root { background: #fffaf0; color: var(--gold); }
+.mm-node.kind-row-goal { border-color: rgba(214, 177, 106, 0.55); }
+.mm-node.kind-row-action { border-color: rgba(69, 216, 234, 0.4); }
+.mm-actions { display: flex; gap: 4px; margin-top: 4px; }
+.mm-actions .btn.sm { min-height: 32px; padding: 2px 8px; font-size: 0.75rem; }
+
+/* 4象限 */
+.matrix { display: grid; grid-template-columns: 24px 1fr; grid-template-rows: auto 1fr; gap: 6px; margin-bottom: 14px; }
+.axis-top { grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; text-align: center; font-size: 0.75rem; letter-spacing: 0.12em; color: var(--cyan); }
+.axis-side { grid-row: 2; display: grid; grid-template-rows: 1fr 1fr; writing-mode: vertical-rl; text-align: center; font-size: 0.75rem; letter-spacing: 0.12em; color: var(--gold); }
+.axis-side span { display: flex; align-items: center; justify-content: center; }
+.quads { grid-row: 2; grid-column: 2; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.quad { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px; min-height: 140px; transition: border-color 0.2s; }
+.quad h2 { font-size: 0.72rem; color: var(--text-2); margin-bottom: 6px; line-height: 1.4; }
+.quad.q2 { border-color: rgba(214, 177, 106, 0.5); background-image: radial-gradient(circle at 100% 0%, rgba(214, 177, 106, 0.08), transparent 60%); }
+.quad.over, .tray.over { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan-soft); }
+.cards { display: grid; gap: 6px; }
+.pcard { display: grid; gap: 2px; text-align: left; background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 12px; padding: 8px 10px; color: var(--text); font: inherit; cursor: grab; min-height: 44px; }
+.pcard .tag { margin-top: 2px; }
+@media (max-width: 520px) {
+  .quads { grid-template-columns: 1fr; }
+  .axis-top, .axis-side { display: none; }
+  .matrix { grid-template-columns: 1fr; }
+  .quads { grid-column: 1; }
+}
+
+/* 時間割 */
+.datenav { display: flex; align-items: center; gap: 8px; margin: 8px 0 12px; }
+.datenav strong { flex: 1; text-align: center; }
+.timeline-card { padding: 10px 10px 10px 4px; }
+.tl { position: relative; margin-left: 74px; border-left: 1px solid var(--border-strong); }
+.tl-hour { position: absolute; left: -74px; right: 0; border-top: 1px solid var(--border); height: 0; }
+.tl-hour span { position: absolute; left: 0; top: -9px; font-size: 0.7rem; color: var(--text-3); width: 70px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.tl-free { position: absolute; left: 0; right: 0; background: transparent; border: 0; cursor: copy; }
+.tl-free:hover { background: rgba(69, 216, 234, 0.05); }
+.tl-now { position: absolute; left: -4px; right: 0; border-top: 2px solid var(--cyan); }
+.tl-now::before { content: ''; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--cyan); }
+.tl-drop { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--gold); font-size: 0.7rem; color: var(--gold); }
+.tl-block { position: absolute; left: 6px; right: 4px; display: flex; flex-direction: column; align-items: flex-start; gap: 0; overflow: hidden; text-align: left; border-radius: 10px; border: 1px solid rgba(69, 216, 234, 0.45); background: linear-gradient(180deg, rgba(69, 216, 234, 0.16), rgba(69, 216, 234, 0.08)); color: var(--text); padding: 4px 8px; font: inherit; cursor: pointer; z-index: 2; }
+.tl-block.primary { border-color: var(--gold); background: linear-gradient(180deg, rgba(214, 177, 106, 0.24), rgba(214, 177, 106, 0.1)); }
+.tl-block.st-completed { opacity: 0.75; border-style: solid; }
+.tl-block.st-completed .tl-title { text-decoration: line-through; text-decoration-color: rgba(185, 195, 218, 0.5); }
+.tl-block.st-unrecorded { border-style: dashed; }
+.tl-block.ov { box-shadow: inset 4px 0 0 var(--danger); }
+.tl-time { font-size: 0.68rem; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.tl-title { font-size: 0.86rem; font-weight: 650; line-height: 1.3; }
+.tl-state { font-size: 0.66rem; color: var(--cyan); }
+.plan-link .btn.sm { flex: 1 1 120px; }
