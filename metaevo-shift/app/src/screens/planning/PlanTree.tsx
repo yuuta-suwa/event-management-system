@@ -24,13 +24,16 @@ export function PlanTree(props: { focusId?: string }) {
   const anchor = getLifeAnchors(data)[0];
   const archived = ep.planNodes.filter((n) => n.archivedAt && !(n.parentId && ep.planNodes.find((p) => p.id === n.parentId)?.archivedAt === n.archivedAt));
 
+  // URLで指定されたノードを開く（データの読み込みが後から届いても1回だけ開く）
+  const [openedFor, setOpenedFor] = useState<string | null>(null);
   useEffect(() => {
-    if (props.focusId) {
-      const n = ep.planNodes.find((x) => x.id === props.focusId);
-      if (n) setOpen(n);
+    if (!props.focusId || openedFor === props.focusId) return;
+    const n = ep.planNodes.find((x) => x.id === props.focusId);
+    if (n) {
+      setOpen(n);
+      setOpenedFor(props.focusId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.focusId]);
+  }, [props.focusId, ep.planNodes, openedFor]);
 
   const hits = q.trim() ? ep.planNodes.filter((n) => !n.archivedAt && n.title.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 50) : [];
 
@@ -97,10 +100,11 @@ export function PlanTree(props: { focusId?: string }) {
         </details>
       )}
 
+      <p className="small faint">この目標ツリーはこの端末の中だけに保存され、iMacとiPhoneの間で自動同期はされません（移すときは設定のバックアップ／復元）。</p>
       <p className="small faint">細かく分けすぎなくて大丈夫です。今週注力する枝だけを深く分解し、残りは保留できます。</p>
 
       {adding && <AddGoalSheet onClose={() => setAdding(false)} />}
-      {open && <NodeSheet node={open} onClose={() => { setOpen(null); if (props.focusId) history.replaceState(null, '', '#/compass/plan'); }} onPlace={(n) => { setOpen(null); setPlace(n); }} />}
+      {open && <NodeSheet key={open.id} node={open} onClose={() => { const id = open.id; setOpen((cur) => (cur?.id === id ? null : cur)); if (location.hash === `#/compass/plan/${id}`) history.replaceState(null, '', '#/compass/plan'); }} onPlace={(n) => { setOpen(null); setPlace(n); }} />}
       {place && <PlaceSheet action={place} onClose={() => setPlace(null)} />}
     </div>
   );
@@ -128,15 +132,14 @@ function TreeRow(props: { node: PlanNode; cm: Map<string | null, PlanNode[]>; de
   const kids = cm.get(node.id) ?? [];
   return (
     <li role="treeitem" aria-expanded={kids.length ? !node.collapsed : undefined} aria-level={props.depth + 1} data-testid={`row-${node.id}`}>
-      <div className={`tree-row kind-row-${node.kind}`} style={{ paddingLeft: 8 + props.depth * 16 }}>
+      <div className={`tree-row kind-row-${node.kind}`}>
         {kids.length > 0 ? (
           <button className="twisty" aria-label={node.collapsed ? '開く' : '折り畳む'} onClick={() => prepo.updateNode(node.id, { collapsed: !node.collapsed })}>{node.collapsed ? '▸' : '▾'}</button>
         ) : <span className="twisty-sp" />}
         <button className="tree-title" onClick={() => props.onOpen(node)} data-testid={`open-${node.id}`}>
-          <KindBadge kind={node.kind} />
-          <span className="t">{node.title || '（無題・タップして名前を入力）'}</span>
+          <span className="tline"><KindBadge kind={node.kind} /><span className="t">{node.title || '（無題・タップして名前を入力）'}</span></span>
+          <NodeMeta node={node} />
         </button>
-        <NodeMeta node={node} />
         <AsyncButton className="iconbtn add-child" ariaLabel={`「${node.title}」に子を追加`} testId={`add-child-${node.id}`} onClick={() => prepo.createNode({ kind: node.kind === 'goal' ? 'milestone' : 'action', title: '', parentId: node.id }).then(async () => { if (node.collapsed) await prepo.updateNode(node.id, { collapsed: false }); })}>＋</AsyncButton>
       </div>
       {kids.length > 0 && !node.collapsed && (

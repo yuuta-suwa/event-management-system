@@ -47,6 +47,7 @@ export function Settings() {
           <AsyncButton className="btn primary" testId="btn-backup" onClick={async () => { const n = await downloadBackup(isDemo); app.toast(`${n} を保存しました。`); }}>バックアップを保存</AsyncButton>
           {'share' in navigator && <AsyncButton className="btn" onClick={async () => { try { await downloadBackup(isDemo, true); } catch { /* 共有キャンセル */ } }}>共有シートで保存</AsyncButton>}
         </div>
+        <p className="small banner info" data-testid="no-sync-note">iMacとiPhoneなど、端末どうしのデータは自動では同期されません。別の端末で使うときは、この端末で「バックアップを保存」し、もう一方の端末で「復元」してください（追加マージも選べます）。</p>
         <p className="small faint">ファイルは暗号化されていません。願望・感情などの非公開の内容を含むため、保存先（共有フォルダ・メール添付など）に注意してください。</p>
       </section>
 

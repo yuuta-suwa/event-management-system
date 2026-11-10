@@ -1,5 +1,5 @@
 /** 今日 > 今日の計画：07:00〜25:00 の時間割、実行記録、IF→THEN、翌日への持ち越し候補 */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../state';
 import * as prepo from '../../db/planningRepo';
 import { getDayMode, primaryActionIdFor } from '../../db/bridge';
@@ -15,7 +15,7 @@ import { AsyncButton, Choice, Ico, Sheet, TextField } from '../../ui/kit';
 import { PlaceSheet } from './shared';
 import { clock } from '../../db/repo';
 
-const PX_PER_MIN = 1.1;
+const PX_PER_MIN = 2;
 const MODE_LABEL = { advance: '前進する日', prepare: '整える日', recover: '回復する日' } as const;
 
 export function Schedule() {
@@ -45,6 +45,15 @@ export function Schedule() {
   const showCarry = carry.length > 0 && (date < today || (nowMin !== null && nowMin >= 20 * 60));
 
   const hours = useMemo(() => Array.from({ length: 19 }, (_, i) => 7 + i), []);
+  // 開いたとき・日付を変えたとき：現在時刻（今日）か最初の予定の少し前までスクロール
+  const tlRef = useRef<HTMLDivElement>(null);
+  const focusMin = nowMin !== null && nowMin >= DAY_START_MIN ? nowMin : blocks[0]?.startMinute ?? null;
+  useEffect(() => {
+    if (focusMin === null || !tlRef.current) return;
+    const top = tlRef.current.getBoundingClientRect().top + window.scrollY + (focusMin - 60 - DAY_START_MIN) * PX_PER_MIN;
+    if (focusMin - 60 > DAY_START_MIN) window.scrollTo({ top: Math.max(0, top - 80), behavior: 'auto' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
   const minuteAtY = (y: number) => Math.min(DAY_END_MIN - 15, Math.max(DAY_START_MIN, DAY_START_MIN + Math.floor(y / PX_PER_MIN / 15) * 15));
 
   return (
@@ -99,9 +108,11 @@ export function Schedule() {
         </section>
       )}
 
+      <div className="schedule-cols">
       <section className="timeline-card card" aria-label="07:00〜25:00の時間割">
         <div
           className="tl"
+          ref={tlRef}
           style={{ height: total * PX_PER_MIN }}
           data-testid="timeline"
           onDragOver={(e) => { e.preventDefault(); setDragOverMin(minuteAtY(e.clientY - (e.currentTarget as HTMLElement).getBoundingClientRect().top)); }}
@@ -132,7 +143,7 @@ export function Schedule() {
               <button
                 key={b.id}
                 className={`tl-block st-${st} ${b.actionId === primaryId ? 'primary' : ''} ${ov ? 'ov' : ''}`}
-                style={{ top: (b.startMinute - DAY_START_MIN) * PX_PER_MIN, height: Math.max(26, b.durationMinutes * PX_PER_MIN) }}
+                style={{ top: (b.startMinute - DAY_START_MIN) * PX_PER_MIN, height: Math.max(28, b.durationMinutes * PX_PER_MIN - 2) }}
                 onClick={() => setBlockOpen(b)}
                 data-testid={`block-${b.id}`}
               >
@@ -158,6 +169,7 @@ export function Schedule() {
         </ul>
         <a className="small" href="#/compass/plan">目標ツリーを開く →</a>
       </section>
+      </div>
 
       {pickAt !== null && (
         <Sheet title={`${fmtMinute(pickAt)} から何をしますか`} onClose={() => setPickAt(null)} testId="pick-sheet">

@@ -1,6 +1,6 @@
 /**
  * v2.4 行動設計・実行管理（executionPlanning）ドメイン。
- * 仕様：metaevo-shift/proposals/v2_4/METAEVO_SHIFT_V2_4_EXECUTION_SPEC.md（ユーザー提供の1ファイル版）
+ * 仕様：ユーザー提供「MetaEVO Shift v2.4 完全引継ぎ（1ファイル版）」／照合結果は docs/11_V2_4_EXECUTION_PLANNING.md
  * 既存v2.3のデータは変更しない。人生の目的・既存目標は sourceAnchorId による参照のみ。
  * すべて純関数（外部API・AIなし）。
  */
@@ -94,6 +94,8 @@ export const executionEventSchema = z.object({
   resumeAt: z.string().nullable().default(null),
   firstStep: z.string().nullable().default(null),
   occurredAt: isoDT,
+  /** 同時刻の記録の順序（追記ごとに増える通し番号） */
+  seq: z.number().int().optional(),
 }).passthrough();
 export type ExecutionEvent = z.infer<typeof executionEventSchema>;
 
@@ -312,8 +314,13 @@ export function plannedMinutes(blocks: ScheduleBlock[], planDate: string): numbe
 export type BlockExecState = 'unrecorded' | 'not_started' | 'in_progress' | 'partial' | 'completed' | 'interrupted';
 export const EXEC_STATE_LABEL: Record<BlockExecState, string> = { unrecorded: '未記録', not_started: '未着手', in_progress: '実行中', partial: '一部実行', completed: '完了', interrupted: '中断・困難' };
 
+/** 実行記録の時系列（同時刻は通し番号 seq で確定） */
+export function cmpExec(a: ExecutionEvent, b: ExecutionEvent): number {
+  return a.occurredAt.localeCompare(b.occurredAt) || (Number(a.seq ?? 0) - Number(b.seq ?? 0));
+}
+
 export function blockExecState(events: ExecutionEvent[], blockId: string): BlockExecState {
-  const evs = events.filter((e) => e.blockId === blockId).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+  const evs = events.filter((e) => e.blockId === blockId).sort(cmpExec);
   const last = evs[evs.length - 1];
   if (!last) return 'unrecorded';
   switch (last.kind) {
@@ -327,7 +334,7 @@ export function blockExecState(events: ExecutionEvent[], blockId: string): Block
 }
 /** タスクとしての完了（再オープン後の再完了でも1回だけ） */
 export function actionCompleted(events: ExecutionEvent[], actionId: string): boolean {
-  const evs = events.filter((e) => e.actionId === actionId && (e.kind === 'completed' || e.kind === 'reopened')).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+  const evs = events.filter((e) => e.actionId === actionId && (e.kind === 'completed' || e.kind === 'reopened')).sort(cmpExec);
   return evs.length > 0 && evs[evs.length - 1].kind === 'completed';
 }
 

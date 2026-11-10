@@ -95,7 +95,7 @@ export async function loadAll(): Promise<AppData> {
         featureVersion: FEATURE_VERSION,
         planNodes: await d.planNodes.toArray(),
         scheduleBlocks: await d.scheduleBlocks.toArray(),
-        executionEvents: (await d.executionEvents.toArray()).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
+        executionEvents: (await d.executionEvents.toArray()).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || (Number(a.seq ?? 0) - Number(b.seq ?? 0))),
         ifThenRules: await d.ifThenRules.toArray(),
         outcomeRecords: await d.outcomeRecords.toArray(),
       },
@@ -320,7 +320,10 @@ async function mirrorPrimaryExecution(plan: DayPlan, kind: 'started' | 'complete
   if (!actionId) return;
   const d = db();
   const blocks = (await d.scheduleBlocks.where('planDate').equals(plan.localDate).toArray()).filter((b) => b.actionId === actionId && b.state === 'placed');
+  let seq = 0;
+  await d.executionEvents.each((e) => { if (typeof e.seq === 'number' && e.seq > seq) seq = e.seq; });
   await d.executionEvents.add({
+    seq: seq + 1,
     id: newId('xe'), actionId, blockId: blocks.length === 1 ? blocks[0].id : null, planDate: plan.localDate, kind,
     reason: null, note: 'v2.3の今日の最重要行動から記録', criteriaMet: null, evidence: null, resumeAt: null, firstStep: null, occurredAt: clock.now().toISOString(),
   });

@@ -537,9 +537,9 @@ body::after {
 .tree { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 4px; margin-bottom: 14px; }
 .tree-row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 10px; min-height: 48px; }
 .tree-row:hover { background: rgba(255, 255, 255, 0.03); }
-.tree ul { border-left: 1px dashed var(--border-strong); margin-left: 22px; }
+.tree ul { border-left: 1px dashed var(--border-strong); margin-left: 15px; padding-left: 2px; }
 .twisty, .twisty-sp { width: 32px; min-width: 32px; height: 44px; display: inline-flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--text-3); font-size: 0.9rem; cursor: pointer; }
-.tree-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; background: none; border: 0; color: var(--text); font: inherit; text-align: left; padding: 6px 0; min-height: 44px; cursor: pointer; }
+.tree-title { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; background: none; border: 0; color: var(--text); font: inherit; text-align: left; padding: 6px 0; min-height: 44px; cursor: pointer; }
 .tree-title .t { overflow-wrap: anywhere; }
 .node-meta { display: inline-flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
 .node-meta .tag { margin: 0; font-size: 0.66rem; }
@@ -548,7 +548,7 @@ body::after {
 /* マインドマップ（PC） */
 .mm-scroll { overflow: auto; padding: 8px 4px 16px; margin-bottom: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
 .mm, .mm ul { list-style: none; margin: 0; padding: 0; display: flex; }
-.mm li { display: flex; align-items: center; position: relative; padding: 6px 0; }
+.mm li { display: flex; align-items: center; position: relative; padding: 5px 0; }
 .mm ul { flex-direction: column; justify-content: center; padding-left: 28px; position: relative; }
 .mm ul::before { content: ''; position: absolute; left: 0; top: 50%; width: 14px; border-top: 1px solid rgba(214, 177, 106, 0.55); }
 .mm ul > li::before { content: ''; position: absolute; left: -14px; width: 14px; top: 50%; border-top: 1px solid rgba(214, 177, 106, 0.55); }
@@ -607,3 +607,32 @@ body::after {
 .tl-title { font-size: 0.86rem; font-weight: 650; line-height: 1.3; }
 .tl-state { font-size: 0.66rem; color: var(--cyan); }
 .plan-link .btn.sm { flex: 1 1 120px; }
+
+.tree-title .tline { display: flex; align-items: flex-start; gap: 6px; width: 100%; }
+.tree-title .tline .kind { margin-top: 3px; }
+.tree-title .node-meta { justify-content: flex-start; }
+.tree-row .twisty, .tree-row .twisty-sp { width: 26px; min-width: 26px; }
+.mm-node .tree-title { flex-direction: row; align-items: center; }
+
+/* iMac・PC：行動設計の3画面は広く使い、詳細は右ペインで編集 */
+@media (min-width: 900px) {
+  .app.wide { max-width: 1180px; }
+  .app.wide .main { padding-left: 28px; padding-right: 28px; }
+  .app.wide .mm-scroll { max-height: calc(100dvh - 320px); }
+  .app.wide .mm-node { max-width: 280px; }
+  .app.wide .quad { min-height: 200px; }
+  .sheet-backdrop { align-items: stretch; justify-content: flex-end; background: rgba(3, 7, 18, 0.45); }
+  .sheet { max-width: 480px; max-height: 100dvh; border-radius: 22px 0 0 22px; border-bottom: 1px solid var(--border-strong); border-right: 0; animation: drawer-in 0.22s ease-out; padding-top: calc(18px + env(safe-area-inset-top)); }
+  @keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+}
+@media (min-width: 1100px) {
+  .schedule-cols { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+}
+.btn > svg { width: 20px; height: 20px; flex: 0 0 auto; }
+.matrix { grid-template-columns: 1fr; }
+.axis-side { display: none; }
+.axis-top { grid-column: 1; }
+.quads { grid-column: 1; }
+.tl-block { flex-direction: row; flex-wrap: wrap; align-content: flex-start; align-items: baseline; column-gap: 8px; row-gap: 0; padding: 4px 10px; }
+.tl-block .tl-title { flex: 1 1 8em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-block .tl-state { margin-left: auto; }

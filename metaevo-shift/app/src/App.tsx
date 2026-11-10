@@ -62,8 +62,9 @@ function Shell(props: { route: Route }) {
     ? (cycleDay(app.experiment, app.today) <= 14 ? `Day ${String(Math.max(0, cycleDay(app.experiment, app.today))).padStart(2, '0')} / 14` : `Day ${app.dayN}`)
     : `Day ${String(app.dayN).padStart(2, '0')}`;
 
+  const wide = route.name === 'plantree' || route.name === 'schedule' || route.name === 'priority';
   return (
-    <div className="app">
+    <div className={`app ${wide ? 'wide' : ''}`}>
       <header className="topbar">
         <a className="brand" href="#/today" style={{ textDecoration: 'none', color: 'inherit' }} aria-label={`${brand.brand} ホーム`}>
           <img src="./icon.svg" alt="" className="brand-mark" />

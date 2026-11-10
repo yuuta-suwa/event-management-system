@@ -201,6 +201,7 @@ export async function recordExecution(input: ExecInput): Promise<boolean> {
       if (!b || b.actionId !== input.actionId) throw new Error('予定枠と行動が一致しません。');
     }
     await d.executionEvents.add({
+      seq: await nextExecSeq(),
       id: input.opId, actionId: input.actionId, blockId: input.blockId, planDate: input.planDate, kind: input.kind, reason: input.reason ?? null,
       note: input.note ?? null, criteriaMet: input.criteriaMet ?? null, evidence: input.evidence ?? null, resumeAt: input.resumeAt ?? null, firstStep: input.firstStep ?? null, occurredAt: now(),
     });
@@ -255,4 +256,11 @@ export async function saveRule(rule: Omit<IfThenRule, 'id' | 'createdAt'> & { id
 }
 export async function deleteRule(id: string): Promise<void> {
   await db().ifThenRules.delete(id);
+}
+
+/** 実行記録の通し番号（トランザクション内で呼ぶ） */
+export async function nextExecSeq(): Promise<number> {
+  let max = 0;
+  await db().executionEvents.each((e) => { if (typeof e.seq === 'number' && e.seq > max) max = e.seq; });
+  return max + 1;
 }
