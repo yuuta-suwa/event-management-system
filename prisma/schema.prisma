@@ -69,6 +69,7 @@ enum NotificationType {
   PAYMENT_CONFIRMED
   TICKET
   EVENT_EVE
+  EVENT_DAY_OF
   EVENT_THREE_HOURS
   CUSTOM
 }
@@ -77,29 +78,37 @@ enum CheckinType {
   QR
   WALK_IN
   MANUAL
+  RECEPTION_CODE
+  NAME_SEARCH
 }
 
 model User {
-  id                String           @id @default(cuid())
-  name              String
-  email             String           @unique
-  passwordHash      String?
-  role              UserRole
-  status            UserStatus       @default(ACTIVE)
-  emailVerified     DateTime?
-  image             String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  staffProfile      StaffProfile?
-  participant       Participant?
-  sessions          Session[]
-  accounts          Account[]
-  managedEvents     Event[]          @relation("EventManager")
-  eventAssignments  EventStaff[]
-  confirmedPayments Payment[]        @relation("PaymentConfirmer")
-  performedCheckins Checkin[]        @relation("CheckinStaff")
-  transfers         TicketTransfer[] @relation("TransferOperator")
-  auditLogs         AuditLog[]       @relation("AuditActor")
+  id                  String                @id @default(cuid())
+  name                String
+  email               String                @unique
+  passwordHash        String?
+  role                UserRole
+  status              UserStatus            @default(ACTIVE)
+  emailVerified       DateTime?
+  image               String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  staffProfile        StaffProfile?
+  eventRoles          EventRoleAssignment[] @relation("EventRoleUser")
+  collectedTickets    Ticket[]              @relation("TicketCollector")
+  receipts            CollectionReceipt[]   @relation("ReceiptCollector")
+  remittancesSent     Remittance[]          @relation("RemittanceSender")
+  remittancesReceived Remittance[]          @relation("RemittanceRecipient")
+  custodySettlements  ExpenseSettlement[]   @relation("SettlementCustody")
+  participant         Participant?
+  sessions            Session[]
+  accounts            Account[]
+  managedEvents       Event[]               @relation("EventManager")
+  eventAssignments    EventStaff[]
+  confirmedPayments   Payment[]             @relation("PaymentConfirmer")
+  performedCheckins   Checkin[]             @relation("CheckinStaff")
+  transfers           TicketTransfer[]      @relation("TransferOperator")
+  auditLogs           AuditLog[]            @relation("AuditActor")
 }
 
 model StaffProfile {
@@ -116,27 +125,35 @@ model StaffProfile {
 }
 
 model Participant {
-  id                String              @id @default(cuid())
-  userId            String?             @unique
-  name              String
-  nameKana          String
-  phone             String
-  email             String
-  gender            String?
-  age               Int?
-  occupation        String?
-  lineUserId        String?             @unique
-  lineConnected     Boolean             @default(false)
-  notes             String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  registrations     EventRegistration[]
-  tickets           Ticket[]
-  checkins          Checkin[]
-  notifications     NotificationLog[]
-  incomingTransfers TicketTransfer[]    @relation("NewParticipant")
-  outgoingTransfers TicketTransfer[]    @relation("OldParticipant")
+  id                  String              @id @default(cuid())
+  userId              String?             @unique
+  name                String
+  nameKana            String
+  phone               String
+  email               String
+  gender              String?
+  age                 Int?
+  occupation          String?
+  referrerName        String?
+  snsContact          String?
+  lineUserId          String?             @unique
+  lineConnected       Boolean             @default(false)
+  lineLinkCode        String              @unique
+  lineVerifiedAt      DateTime?
+  lineFriendFlag      Boolean?
+  lineFriendCheckedAt DateTime?
+  notes               String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  user                User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  registrations       EventRegistration[]
+  tickets             Ticket[]
+  ticketOrders        TicketOrder[]
+  checkins            Checkin[]
+  notifications       NotificationLog[]
+  incomingTransfers   TicketTransfer[]    @relation("NewParticipant")
+  outgoingTransfers   TicketTransfer[]    @relation("OldParticipant")
+  lineFriend          LineFriend?
 
   @@index([email])
   @@index([phone])
@@ -154,41 +171,76 @@ model EventCategory {
 }
 
 model Event {
-  id                  String              @id @default(cuid())
-  categoryId          String
-  name                String
-  description         String
-  imageUrl            String?
-  eventDate           DateTime
-  startTime           DateTime
-  receptionStartTime  DateTime
-  endTime             DateTime
-  venueName           String
-  address             String
-  capacity            Int
-  price               Int
-  organizer           String
-  managerId           String
-  applicationDeadline DateTime
-  cancelDeadline      DateTime?
-  cancellationPolicy  String
-  bankInformation     String
-  status              EventStatus         @default(DRAFT)
-  lineNotifications   Boolean             @default(false)
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  category            EventCategory       @relation(fields: [categoryId], references: [id])
-  manager             User                @relation("EventManager", fields: [managerId], references: [id])
-  staff               EventStaff[]
-  allocations         TicketAllocation[]
-  registrations       EventRegistration[]
-  tickets             Ticket[]
-  checkins            Checkin[]
-  notificationJobs    NotificationJob[]
-  notificationLogs    NotificationLog[]
+  id                             String                  @id @default(cuid())
+  categoryId                     String
+  name                           String
+  description                    String
+  imageUrl                       String?
+  eventDate                      DateTime
+  startTime                      DateTime
+  receptionStartTime             DateTime
+  endTime                        DateTime
+  venueName                      String
+  address                        String
+  capacity                       Int
+  price                          Int
+  organizer                      String
+  managerId                      String
+  applicationDeadline            DateTime
+  cancelDeadline                 DateTime?
+  cancellationPolicy             String
+  bankInformation                String
+  promoUrl                       String?
+  ticketBackgroundUrl            String?
+  status                         EventStatus             @default(DRAFT)
+  lineNotifications              Boolean                 @default(false)
+  eveNotificationEnabled         Boolean                 @default(true)
+  eveNotificationTime            String                  @default("18:00")
+  dayOfNotificationEnabled       Boolean                 @default(false)
+  dayOfNotificationTime          String                  @default("12:00")
+  beforeStartNotificationEnabled Boolean                 @default(true)
+  beforeStartNotificationMinutes Int                     @default(180)
+  unpaidReminderEnabled          Boolean                 @default(true)
+  createdAt                      DateTime                @default(now())
+  updatedAt                      DateTime                @updatedAt
+  category                       EventCategory           @relation(fields: [categoryId], references: [id])
+  manager                        User                    @relation("EventManager", fields: [managerId], references: [id])
+  staff                          EventStaff[]
+  allocations                    TicketAllocation[]
+  ticketOrders                   TicketOrder[]
+  registrations                  EventRegistration[]
+  tickets                        Ticket[]
+  checkins                       Checkin[]
+  notificationJobs               NotificationJob[]
+  notificationLogs               NotificationLog[]
+  expenses                       EventExpense[]
+  roleAssignments                EventRoleAssignment[]
+  receipts                       CollectionReceipt[]
+  feeAdvances                    FeeAdvance[]
+  expenseAdvances                ExpenseAdvance[]
+  remittances                    Remittance[]
+  storePayments                  StorePayment[]
+  approverChanges                ApproverChangeRequest[]
+  reports                        EventReport[]
 
   @@index([eventDate, status])
   @@index([managerId])
+}
+
+model EventExpense {
+  id           String          @id @default(cuid())
+  eventId      String
+  label        String
+  amount       Int
+  note         String?
+  createdAt    DateTime        @default(now())
+  event        Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  voidedAt     DateTime?
+  voidReason   String?
+  advance      ExpenseAdvance?
+  storePayment StorePayment?
+
+  @@index([eventId])
 }
 
 model EventStaff {
@@ -203,21 +255,40 @@ model EventStaff {
 }
 
 model TicketAllocation {
-  id                String       @id @default(cuid())
+  id                String        @id @default(cuid())
   eventId           String
   staffId           String
   allocatedQuantity Int
-  assignedQuantity  Int          @default(0)
-  referralCode      String       @unique
-  referralTokenHash String       @unique
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  event             Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  staff             StaffProfile @relation(fields: [staffId], references: [id])
+  assignedQuantity  Int           @default(0)
+  referralCode      String        @unique
+  referralTokenHash String        @unique
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  event             Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  staff             StaffProfile  @relation(fields: [staffId], references: [id])
   tickets           Ticket[]
+  orders            TicketOrder[]
 
   @@unique([eventId, staffId])
   @@index([eventId])
+}
+
+model TicketOrder {
+  id                 String              @id @default(cuid())
+  eventId            String
+  buyerParticipantId String
+  allocationId       String?
+  quantity           Int
+  claimedCount       Int                 @default(1)
+  createdAt          DateTime            @default(now())
+  event              Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  buyer              Participant         @relation(fields: [buyerParticipantId], references: [id])
+  allocation         TicketAllocation?   @relation(fields: [allocationId], references: [id])
+  tickets            Ticket[]
+  receipts           CollectionReceipt[]
+
+  @@index([eventId])
+  @@index([buyerParticipantId])
 }
 
 model EventRegistration {
@@ -238,32 +309,44 @@ model EventRegistration {
 }
 
 model Ticket {
-  id                String             @id @default(cuid())
-  eventId           String
-  allocationId      String?
-  participantId     String
-  introducerStaffId String?
-  ticketNumber      String             @unique
-  qrTokenHash       String             @unique
-  qrTokenVersion    Int                @default(1)
-  status            TicketStatus       @default(PROVISIONAL)
-  paymentStatus     PaymentStatus      @default(UNPAID)
-  issuedAt          DateTime?
-  cancelledAt       DateTime?
-  transferredAt     DateTime?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  event             Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  allocation        TicketAllocation?  @relation(fields: [allocationId], references: [id])
-  participant       Participant        @relation(fields: [participantId], references: [id])
-  introducer        StaffProfile?      @relation("Introducer", fields: [introducerStaffId], references: [id])
-  registration      EventRegistration?
-  payments          Payment[]
-  checkin           Checkin?
-  transfers         TicketTransfer[]
+  id                    String              @id @default(cuid())
+  eventId               String
+  allocationId          String?
+  orderId               String?
+  participantId         String
+  introducerStaffId     String?
+  ticketNumber          String              @unique
+  qrTokenHash           String              @unique
+  qrTokenVersion        Int                 @default(1)
+  receptionCode         String?
+  receptionCodeIssuedAt DateTime?
+  claimed               Boolean             @default(true)
+  shareVersion          Int                 @default(0)
+  collectorId           String?
+  status                TicketStatus        @default(PROVISIONAL)
+  paymentStatus         PaymentStatus       @default(UNPAID)
+  issuedAt              DateTime?
+  cancelledAt           DateTime?
+  transferredAt         DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  event                 Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  allocation            TicketAllocation?   @relation(fields: [allocationId], references: [id])
+  order                 TicketOrder?        @relation(fields: [orderId], references: [id])
+  collector             User?               @relation("TicketCollector", fields: [collectorId], references: [id], onDelete: SetNull)
+  receipts              CollectionReceipt[]
+  participant           Participant         @relation(fields: [participantId], references: [id])
+  introducer            StaffProfile?       @relation("Introducer", fields: [introducerStaffId], references: [id])
+  registration          EventRegistration?
+  payments              Payment[]
+  checkin               Checkin?
+  transfers             TicketTransfer[]
 
+  @@unique([eventId, receptionCode])
   @@index([eventId, paymentStatus, status])
+  @@index([collectorId])
   @@index([participantId])
+  @@index([orderId])
 }
 
 model Payment {
@@ -292,6 +375,7 @@ model Checkin {
   checkedInAt   DateTime    @default(now())
   checkedInBy   String
   checkinType   CheckinType
+  verification  String?
   createdAt     DateTime    @default(now())
   event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   ticket        Ticket      @relation(fields: [ticketId], references: [id])
@@ -306,14 +390,15 @@ model TicketTransfer {
   ticketId         String
   oldParticipantId String
   newParticipantId String
-  transferredBy    String
+  transferredBy    String?
+  source           String      @default("ADMIN")
   reason           String
   oldQrTokenHash   String
   createdAt        DateTime    @default(now())
   ticket           Ticket      @relation(fields: [ticketId], references: [id])
   oldParticipant   Participant @relation("OldParticipant", fields: [oldParticipantId], references: [id])
   newParticipant   Participant @relation("NewParticipant", fields: [newParticipantId], references: [id])
-  operator         User        @relation("TransferOperator", fields: [transferredBy], references: [id])
+  operator         User?       @relation("TransferOperator", fields: [transferredBy], references: [id])
 }
 
 model NotificationJob {
@@ -345,6 +430,15 @@ model NotificationLog {
   event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId, createdAt])
+}
+
+model LineGroup {
+  id       String    @id @default(cuid())
+  groupId  String    @unique
+  name     String?
+  active   Boolean   @default(true)
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
 }
 
 model AuditLog {
@@ -395,4 +489,330 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model LineFriend {
+  id            String       @id @default(cuid())
+  lineUserId    String       @unique
+  displayName   String?
+  status        String       @default("FOLLOWING")
+  matchStatus   String       @default("PENDING")
+  participantId String?      @unique
+  followedAt    DateTime     @default(now())
+  unfollowedAt  DateTime?
+  matchedAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  participant   Participant? @relation(fields: [participantId], references: [id], onDelete: SetNull)
+
+  @@index([matchStatus, status])
+}
+
+model LineWebhookEvent {
+  id         String   @id
+  receivedAt DateTime @default(now())
+}
+
+enum EventRole {
+  COLLECTOR
+  APPROVER
+  REPORTER
+}
+
+model EventRoleAssignment {
+  id         String    @id @default(cuid())
+  eventId    String
+  userId     String
+  role       EventRole
+  active     Boolean   @default(true)
+  assignedBy String?
+  createdAt  DateTime  @default(now())
+  revokedAt  DateTime?
+  event      Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user       User      @relation("EventRoleUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId, role])
+  @@index([eventId, role, active])
+}
+
+model CollectionReceipt {
+  id           String       @id @default(cuid())
+  eventId      String
+  collectorId  String
+  orderId      String?
+  ticketId     String?
+  payerName    String?
+  amount       Int
+  method       String
+  receivedAt   DateTime
+  note         String?
+  status       String       @default("RECORDED")
+  feeAdvanceId String?
+  voidedAt     DateTime?
+  voidedBy     String?
+  voidReason   String?
+  createdAt    DateTime     @default(now())
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  collector    User         @relation("ReceiptCollector", fields: [collectorId], references: [id])
+  order        TicketOrder? @relation(fields: [orderId], references: [id])
+  ticket       Ticket?      @relation(fields: [ticketId], references: [id])
+
+  @@index([eventId, collectorId])
+  @@index([orderId])
+  @@index([ticketId])
+}
+
+model FeeAdvance {
+  id                   String               @id @default(cuid())
+  eventId              String
+  obligorName          String
+  obligorParticipantId String?
+  advancerName         String
+  orderId              String?
+  ticketId             String?
+  amount               Int
+  advancedAt           DateTime
+  method               String               @default("CASH")
+  evidenceNote         String?
+  status               String               @default("OPEN")
+  createdBy            String
+  cancelledAt          DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  event                Event                @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  recoveries           FeeAdvanceRecovery[]
+
+  @@index([eventId, status])
+}
+
+model FeeAdvanceRecovery {
+  id           String     @id @default(cuid())
+  feeAdvanceId String
+  amount       Int
+  recoveredAt  DateTime
+  method       String     @default("CASH")
+  note         String?
+  createdBy    String
+  createdAt    DateTime   @default(now())
+  feeAdvance   FeeAdvance @relation(fields: [feeAdvanceId], references: [id], onDelete: Restrict)
+
+  @@index([feeAdvanceId])
+}
+
+model ExpenseAdvance {
+  id             String              @id @default(cuid())
+  eventId        String
+  advancerName   String
+  advancerUserId String?
+  category       String
+  payee          String
+  amount         Int
+  paidAt         DateTime
+  evidenceNote   String?
+  status         String              @default("REQUESTED")
+  requestedBy    String
+  reviewerId     String?
+  reviewedAt     DateTime?
+  returnReason   String?
+  expenseId      String?             @unique
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  event          Event               @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  expense        EventExpense?       @relation(fields: [expenseId], references: [id])
+  settlements    ExpenseSettlement[]
+
+  @@index([eventId, status])
+}
+
+model ExpenseSettlement {
+  id                 String         @id @default(cuid())
+  expenseAdvanceId   String
+  amount             Int
+  settledAt          DateTime
+  method             String         @default("BANK_TRANSFER")
+  note               String?
+  createdBy          String
+  custodyCollectorId String?
+  createdAt          DateTime       @default(now())
+  expenseAdvance     ExpenseAdvance @relation(fields: [expenseAdvanceId], references: [id], onDelete: Restrict)
+  custodyCollector   User?          @relation("SettlementCustody", fields: [custodyCollectorId], references: [id])
+
+  @@index([expenseAdvanceId])
+}
+
+model Remittance {
+  id                   String    @id @default(cuid())
+  eventId              String
+  senderId             String
+  recipientId          String
+  amount               Int
+  method               String    @default("BANK_TRANSFER")
+  status               String    @default("PLANNED")
+  plannedAt            DateTime?
+  sentAt               DateTime?
+  receivedAt           DateTime?
+  receivedAmount       Int?
+  evidenceNote         String?
+  note                 String?
+  discrepancyNote      String?
+  cancelReason         String?
+  senderConfirmedAt    DateTime?
+  recipientConfirmedAt DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  event                Event     @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  sender               User      @relation("RemittanceSender", fields: [senderId], references: [id])
+  recipient            User      @relation("RemittanceRecipient", fields: [recipientId], references: [id])
+
+  @@index([eventId, status])
+  @@index([senderId])
+  @@index([recipientId])
+}
+
+model StorePayment {
+  id            String               @id @default(cuid())
+  eventId       String
+  expenseId     String               @unique
+  payee         String
+  description   String?
+  plannedAmount Int
+  plannedDate   DateTime?
+  status        String               @default("ACTIVE")
+  cancelledAt   DateTime?
+  cancelledBy   String?
+  cancelReason  String?
+  createdBy     String
+  createdAt     DateTime             @default(now())
+  event         Event                @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  expense       EventExpense         @relation(fields: [expenseId], references: [id])
+  records       StorePaymentRecord[]
+
+  @@index([eventId])
+}
+
+model StorePaymentRecord {
+  id             String       @id @default(cuid())
+  storePaymentId String
+  amount         Int
+  paidAt         DateTime
+  method         String       @default("BANK_TRANSFER")
+  evidenceNote   String?
+  receiptNote    String?
+  status         String       @default("RECORDED")
+  voidedAt       DateTime?
+  voidedBy       String?
+  voidReason     String?
+  createdBy      String
+  createdAt      DateTime     @default(now())
+  storePayment   StorePayment @relation(fields: [storePaymentId], references: [id], onDelete: Restrict)
+
+  @@index([storePaymentId])
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model EmailLog {
+  id                String      @id @default(cuid())
+  eventId           String?
+  ticketId          String?
+  participantId     String?
+  kind              String
+  toEmail           String
+  subject           String
+  status            EmailStatus @default(PENDING)
+  provider          String?
+  providerMessageId String?
+  errorMessage      String?
+  attempt           Int         @default(0)
+  dedupeKey         String?     @unique
+  triggeredBy       String?
+  createdAt         DateTime    @default(now())
+  sentAt            DateTime?
+
+  @@index([eventId, createdAt])
+  @@index([participantId])
+  @@index([status, createdAt])
+}
+
+model ApproverChangeRequest {
+  id                 String                   @id @default(cuid())
+  eventId            String
+  currentApproverId  String?
+  newApproverId      String
+  requestedBy        String
+  emergency          Boolean                  @default(false)
+  reason             String
+  status             String                   @default("PENDING")
+  currentConfirmedAt DateTime?
+  newConfirmedAt     DateTime?
+  completedAt        DateTime?
+  closedBy           String?
+  createdAt          DateTime                 @default(now())
+  event              Event                    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  approvals          ApproverChangeApproval[]
+
+  @@index([eventId, status])
+}
+
+model ApproverChangeApproval {
+  id        String                @id @default(cuid())
+  requestId String
+  userId    String
+  createdAt DateTime              @default(now())
+  request   ApproverChangeRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+
+  @@unique([requestId, userId])
+}
+
+enum ReportKind {
+  COLLECTION
+  PARTICIPANT
+  INTEGRATED
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  RETURNED
+}
+
+model EventReport {
+  id          String        @id @default(cuid())
+  eventId     String
+  kind        ReportKind
+  version     Int
+  status      ReportStatus  @default(DRAFT)
+  snapshot    Json
+  createdBy   String
+  createdAt   DateTime      @default(now())
+  submittedAt DateTime?
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  event       Event         @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  shares      ReportShare[]
+
+  @@unique([eventId, kind, version])
+  @@index([eventId, kind, status])
+}
+
+model ReportShare {
+  id        String      @id @default(cuid())
+  reportId  String
+  tokenHash String      @unique
+  channel   String
+  expiresAt DateTime
+  createdBy String
+  createdAt DateTime    @default(now())
+  revokedAt DateTime?
+  report    EventReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+
+  @@index([reportId])
 }

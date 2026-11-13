@@ -17,6 +17,6 @@ export default async function TransfersPage({searchParams}:{searchParams:Promise
       <label>譲渡理由<textarea name="reason" required minLength={5} maxLength={500} rows={4}/></label>
       <div className="transfer-policy"><ShieldCheck/><span>入金状態は維持されます。実行後、現在のQRコードは即時に使用できなくなります。</span></div>
       <button disabled={!tickets.length}>譲渡して新QRを発行</button>
-    </form><section className="transfer-history"><header><History/><div><h2>譲渡履歴</h2><p>直近100件の監査記録</p></div></header>{history.length?<div>{history.map(item=><article key={item.id}><div><strong>{item.oldName}</strong><ArrowRightLeft/><strong>{item.newName}</strong></div><code>{item.ticketNumber}</code><p>{item.eventName}</p><small>{item.createdAt.toLocaleString("ja-JP")}・担当 {item.operatorName}</small><blockquote>{item.reason}</blockquote></article>)}</div>:<p className="empty-transfer">譲渡履歴はありません。</p>}</section></section>
+    </form><section className="transfer-history"><header><History/><div><h2>譲渡履歴</h2><p>直近100件の監査記録</p></div></header>{history.length?<div>{history.map(item=><article key={item.id}><div><strong>{item.oldName}</strong><ArrowRightLeft/><strong>{item.newName}</strong></div><code>{item.ticketNumber}</code><p>{item.eventName}</p><small>{item.createdAt.toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})}・担当 {item.operatorName}</small><blockquote>{item.reason}</blockquote></article>)}</div>:<p className="empty-transfer">譲渡履歴はありません。</p>}</section></section>
   </main></>
 }
