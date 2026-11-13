@@ -19,7 +19,7 @@ export default async function ReportPage({params,searchParams}:{params:Promise<{
   const {report,mayReview,isCreator}=view;
   const origin=process.env.NEXT_PUBLIC_APP_URL??"";
   const link=q.share?`${origin}/reports/s/${q.share}`:undefined;
-  const details=q.details==="1";
+  const details=q.details!=="0";// 既定は氏名つき(コピーして送る本人の判断。氏名のみで電話番号・メールは含まない)
   const text=lineReportText(report.snapshot as Snapshot,{includeDetails:details,link});
   const st=report.status;
   return <><AppHeader active="reports"/><main className="content-shell">
@@ -41,6 +41,6 @@ export default async function ReportPage({params,searchParams}:{params:Promise<{
       <p className="hint">氏名・受付時刻などの個人情報や非公開帳簿は、LINEグループへ直接送らず、期限付きの認証付きリンクで共有します（リンク先でもログインと閲覧権限を確認します）。</p>
       <form action={createReportShare} className="inline-form"><input type="hidden" name="reportId" value={report.id}/><input type="hidden" name="channel" value="LINE"/><select name="hours" defaultValue="72"><option value="24">24時間</option><option value="72">3日間</option><option value="168">7日間</option></select><button>閲覧リンクを発行</button></form>
       <textarea readOnly rows={14} value={text} className="report-text" aria-label="LINE用報告文"/>
-      <div className="inline-form"><CopyButton text={text}/>{link&&<a className="demo-ticket-link" target="_blank" rel="noreferrer" href={`https://line.me/R/msg/text/?${encodeURIComponent(text)}`}>LINEで送る（送信先はLINEで選択）</a>}<Link href={`/reports/${report.id}?details=${details?"0":"1"}${q.share?`&share=${q.share}`:""}`}>{details?"集計のみの文面に戻す":"氏名・受付時刻を含める（コピー専用・取扱注意）"}</Link></div></section>}
+      <div className="inline-form"><CopyButton text={text}/>{link&&<a className="demo-ticket-link" target="_blank" rel="noreferrer" href={`https://line.me/R/msg/text/?${encodeURIComponent(text)}`}>LINEで送る（送信先はLINEで選択）</a>}<Link href={`/reports/${report.id}?details=${details?"0":"1"}${q.share?`&share=${q.share}`:""}`}>{details?"氏名を含めない文面にする（集計のみ）":"氏名・受付時刻を含める（取扱注意）"}</Link></div></section>}
   </main></>;
 }

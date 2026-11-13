@@ -64,9 +64,13 @@ export function lineReportText(s:Snapshot,opts:{includeDetails:boolean;link?:str
   if(s.tickets){const t=s.tickets;L.push("","■ チケット",`購入者：${t.purchasers}名`,`販売枚数：${t.sold}枚（無料${t.free}枚／キャンセル${t.cancelled}枚／有効${t.valid}枚）`,`チケット売上：${yen(t.total)}`,`入金確認済：${yen(t.confirmed)}`,`未収金：${yen(t.receivable)}`,...(t.refunded?[`返金額：${yen(t.refunded)}`]:[]))}
   if(s.feeAdvances){const f=s.feeAdvances;const total=f.reduce((n,x)=>n+x.amount,0),rec=f.reduce((n,x)=>n+x.recovered,0);L.push("","■ 参加費立替",`件数：${f.length}件`,`立替金額：${yen(total)}`,`回収済額：${yen(rec)}`,`未回収額：${yen(total-rec)}`);if(opts.includeDetails)for(const x of f)L.push(`・${x.obligor}分（${x.advancer}が立替）${yen(x.amount)} 回収済${yen(x.recovered)}`)}
   if(s.expenseAdvances){const e=s.expenseAdvances;const total=e.reduce((n,x)=>n+x.amount,0),set=e.reduce((n,x)=>n+x.settled,0);L.push("","■ イベント経費立替",`件数：${e.length}件`,`立替金額：${yen(total)}`,`精算状況：精算済${yen(set)}／未精算${yen(total-set)}`);if(opts.includeDetails)for(const x of e)L.push(`・${x.advancer}：${x.category}（${x.payee}）${yen(x.amount)}`)}
-  if(s.participants){const p=s.participants;L.push("","■ 参加者",`登録者：${p.registered}名`,`実参加者：${p.attended}名`,p.pending?`未受付者：${p.pending}名（開催中）`:`未受付者：${p.notCheckedIn}名`,...(p.absent?[`欠席者：${p.absent}名`]:[]),`当日参加者：${p.walkIn}名`,`受付率：${p.rate}%`);
-    if(opts.includeDetails){L.push("","■ 参加者詳細");for(const r of p.roster.filter(x=>x.checkedInAt))L.push(`${r.name}　${jstTime(r.checkedInAt)}　${methodLabel[r.method??""]??r.method??""}`)}
-    else L.push("","※ 参加者の氏名・受付時刻は、下記の認証付きリンクから確認してください。")}
+  if(s.participants){const p=s.participants;L.push("","■ 参加者",`参加予定者：${p.registered}名`,`実参加者：${p.attended}名`,p.pending?`未受付者：${p.pending}名（開催中）`:`未受付者：${p.notCheckedIn}名`,...(p.absent?[`欠席者：${p.absent}名`]:[]),`当日参加者：${p.walkIn}名`,`受付率：${p.rate}%`);
+    if(opts.includeDetails){
+      const done=p.roster.filter(x=>x.checkedInAt),rest=p.roster.filter(x=>!x.checkedInAt);
+      L.push("",`■ 実参加者（${done.length}名）`);
+      for(const r of done)L.push(`${r.name}　${jstTime(r.checkedInAt)}　${methodLabel[r.method??""]??r.method??""}`);
+      if(rest.length){L.push("",`■ ${p.absent?"欠席":"未受付"}（${rest.length}名）`);for(const r of rest)L.push(r.name)}
+    }else L.push("","※ 参加者の氏名・受付時刻は、下記の認証付きリンクから確認してください。")}
   L.push("","■ 報告",`報告者：${s.meta.reporterName}`,`作成日時：${new Date(s.meta.generatedAt).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}`);
   if(opts.link)L.push("",`詳細（要ログイン・期限あり）：${opts.link}`);
   return L.join("\n");

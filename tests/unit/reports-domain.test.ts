@@ -44,13 +44,20 @@ const snap:Snapshot={meta:{eventId:"e",eventName:"秋の交流会",eventDate:"20
   expenseAdvances:[{advancer:"佐藤",category:"会場費",payee:"丸の内ホール",amount:30000,paidAt:"2026-11-02T10:00:00+09:00",settled:10000,unsettled:20000,status:"PARTIALLY_SETTLED"}],
   participants:{registered:4,attended:3,notCheckedIn:1,absent:1,pending:0,walkIn:1,rate:75,roster:[{name:"山田 太郎",ticketNumber:"EV-001",checkedInAt:"2026-11-05T17:45:10+09:00",method:"QR",operator:"受付 花子",walkIn:false},{name:"当日 次郎",ticketNumber:"DAY-1",checkedInAt:"2026-11-05T18:10:00+09:00",method:"WALK_IN",operator:"受付 花子",walkIn:true}]}};
 describe("T50 LINE報告文",()=>{
-  it("既定では集計のみで、氏名・受付時刻・立替の個別内容を含めない",()=>{
+  it("氏名を含めない指定のときは集計のみで、氏名・受付時刻・立替の個別内容を含めない",()=>{
     const t=lineReportText(snap,{includeDetails:false});
-    for(const needle of ["秋の交流会","購入者：3名","販売枚数：5枚","チケット売上：25,000円","入金確認済：20,000円","未収金：5,000円","立替金額：5,000円","回収済額：2,000円","未回収額：3,000円","登録者：4名","実参加者：3名","欠席者：1名","当日参加者：1名","受付率：75%","報告者：報告 太郎"])expect(t).toContain(needle);
+    for(const needle of ["秋の交流会","購入者：3名","販売枚数：5枚","チケット売上：25,000円","入金確認済：20,000円","未収金：5,000円","立替金額：5,000円","回収済額：2,000円","未回収額：3,000円","参加予定者：4名","実参加者：3名","欠席者：1名","当日参加者：1名","受付率：75%","報告者：報告 太郎"])expect(t).toContain(needle);
     for(const secret of ["山田 太郎","当日 次郎","山田 花子","鈴木 一郎","17:45"])expect(t).not.toContain(secret);
     expect(t).toContain("認証付きリンク");
   });
-  it("明示したときだけ氏名と受付時刻を含み、共有リンクを付けられる",()=>{
+  it("参加予定者数・実参加者数と、参加者名（実参加者は受付時刻つき・未受付者は別枠）を含む",()=>{
+    const withAbsent={...snap,participants:{...snap.participants!,roster:[...snap.participants!.roster,{name:"未着 三郎",ticketNumber:"EV-9",checkedInAt:null,method:null,operator:null,walkIn:false}]}};
+    const t=lineReportText(withAbsent,{includeDetails:true});
+    for(const needle of ["参加予定者：4名","実参加者：3名","■ 実参加者（2名）","山田 太郎　17:45","当日 次郎　18:10","■ 欠席（1名）","未着 三郎"])expect(t).toContain(needle);
+    expect(t).not.toContain("090");expect(t).not.toContain("@");
+    expect(lineReportText({...withAbsent,participants:{...withAbsent.participants!,absent:0,pending:1}},{includeDetails:true})).toContain("■ 未受付（1名）");
+  });
+  it("共有リンクを付けられる",()=>{
     const t=lineReportText(snap,{includeDetails:true,link:"https://app.example.com/reports/s/abc"});
     expect(t).toContain("山田 太郎");expect(t).toContain("17:45");expect(t).toContain("QR読取");expect(t).toContain("https://app.example.com/reports/s/abc");
   });
