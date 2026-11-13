@@ -66,6 +66,7 @@ describe("T50 LINE報告文",()=>{
 describe("T51 PDF/印刷用の本文",()=>{
   it("イベント概要・集金・立替・参加者・受付時刻をすべて含む",()=>{
     const html=renderToStaticMarkup(createElement(ReportBody,{s:snap}));
+    expect(html).not.toContain("DAY-1");// 名簿にチケット番号は出さない
     for(const needle of ["イベント概要","チケット・集金","参加費立替","イベント経費立替","参加者","受付時刻","丸の内ホール","25,000","山田 太郎","17:45:10","QR読取","受付 花子","当日参加"])expect(html).toContain(needle);
   });
 });
