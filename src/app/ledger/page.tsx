@@ -17,7 +17,7 @@ export default async function LedgerPage({searchParams}:{searchParams:Promise<{e
   return <><AppHeader active="ledger"/><main className="content-shell">
     <div className="page-heading"><div><p className="eyebrow">PRIVATE LEDGER</p><h1>非公開帳簿</h1><p>決裁権者本人だけが閲覧できるイベント別の収支帳簿です（SUPER_ADMINも対象外）。</p></div>
       {mine.length>0&&<form className="year-picker"><select name="event" defaultValue={eventId} aria-label="イベント">{mine.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select><button>表示</button></form>}</div>
-    {!ledger?<div className="empty-state"><Lock/><h2>閲覧できる帳簿がありません</h2><p>この帳簿は、イベントの決裁権者に指定された本人だけが閲覧できます。</p></div>:<>
+    {!ledger?<div className="empty-state"><Lock/><h2>閲覧できる帳簿がありません</h2><p>この帳簿は、イベントの決裁権者に指定された本人だけが閲覧できます。</p>{user.role==="SUPER_ADMIN"&&<p><Link href="/approvers">決裁権者を設定する →</Link></p>}</div>:<>
       <p className="collection-links"><a href={`/api/ledger/csv?event=${ledger.event.id}`}><Download size={14}/> CSV出力</a><Link href={`/reports?event=${ledger.event.id}`}>報告書へ →</Link><span className="print-hint"><Printer size={14}/> ブラウザの印刷でPDF保存できます</span></p>
       <section className="payment-summary">
         <article><BookOpen/><span>チケット売上（入金確認済）<strong>{yen(ledger.tickets.sales)}</strong><small>{ledger.tickets.paidCount}/{ledger.tickets.count}枚</small></span></article>

@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {canCompleteApproverChange,checkApproverRequest} from "@/features/ledger/approver-domain";
+import {canCompleteApproverChange,checkApproverRequest,checkDirectAssign} from "@/features/ledger/approver-domain";
 import {canViewLedger} from "@/features/ledger/access";
 const admin={id:"a",role:"SUPER_ADMIN"},staff={id:"s",role:"RECEPTION_STAFF"};
 const active={id:"n",role:"RECEPTION_STAFF",status:"ACTIVE"};
@@ -47,5 +47,22 @@ describe("非公開帳簿の閲覧権限",()=>{
     expect(canViewLedger("ap",rows)).toBe(true);
     for(const id of ["old","col","admin","mgr"])expect(canViewLedger(id,rows)).toBe(false);
     expect(canViewLedger("admin",[])).toBe(false);
+  });
+});
+
+describe("管理者による決裁権者の直接指定",()=>{
+  const ok={id:"n",role:"RECEPTION_STAFF",status:"ACTIVE"};
+  it("決裁権者が未設定なら、SUPER_ADMINだけが直接指定できる(自分自身も可)",()=>{
+    expect(checkDirectAssign({actor:admin,newApprover:ok,currentApproverIds:[]})).toBe("OK");
+    expect(checkDirectAssign({actor:admin,newApprover:{...ok,id:admin.id,role:"SUPER_ADMIN"},currentApproverIds:[]})).toBe("OK");
+    for(const role of ["EVENT_MANAGER","RECEPTION_STAFF","PARTICIPANT"])expect(checkDirectAssign({actor:{id:"x",role},newApprover:ok,currentApproverIds:[]})).toBe("FORBIDDEN");
+  });
+  it("すでに決裁権者がいるイベントでは直接指定できない(交代は申請フロー)",()=>{
+    expect(checkDirectAssign({actor:admin,newApprover:ok,currentApproverIds:["old"]})).toBe("HAS_APPROVER");
+  });
+  it("参加者・無効アカウント・存在しないユーザーは指定できない",()=>{
+    expect(checkDirectAssign({actor:admin,newApprover:{...ok,role:"PARTICIPANT"},currentApproverIds:[]})).toBe("INVALID_NEW");
+    expect(checkDirectAssign({actor:admin,newApprover:{...ok,status:"SUSPENDED"},currentApproverIds:[]})).toBe("INVALID_NEW");
+    expect(checkDirectAssign({actor:admin,newApprover:null,currentApproverIds:[]})).toBe("INVALID_NEW");
   });
 });

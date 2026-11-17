@@ -29,3 +29,12 @@ export function canCompleteApproverChange(s:CompletionState){
   }
   return s.currentConfirmed;
 }
+
+export type DirectAssignCheck="OK"|"FORBIDDEN"|"INVALID_NEW"|"HAS_APPROVER";
+/** 決裁権者が未設定のイベントに限り、SUPER_ADMINが直接指定できる。すでに決裁権者がいる場合は、必ず申請フロー(現決裁権者の承認+新決裁権者の承諾)を通す。 */
+export function checkDirectAssign(i:{actor:Actor;newApprover:{id:string;role:string;status:string}|null;currentApproverIds:string[]}):DirectAssignCheck{
+  if(i.actor.role!=="SUPER_ADMIN")return "FORBIDDEN";
+  if(!i.newApprover||i.newApprover.status!=="ACTIVE"||i.newApprover.role==="PARTICIPANT")return "INVALID_NEW";
+  if(i.currentApproverIds.length>0)return "HAS_APPROVER";
+  return "OK";
+}

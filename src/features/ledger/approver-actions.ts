@@ -4,11 +4,11 @@ import {Prisma} from "@prisma/client";
 import {z} from "zod";
 import {db} from "@/server/db";
 import {isLocalDemo,requireUser} from "@/server/authz";
-import {canCompleteApproverChange,checkApproverRequest} from "./approver-domain";
+import {canCompleteApproverChange,checkApproverRequest,checkDirectAssign} from "./approver-domain";
 const STAFF=["SUPER_ADMIN","EVENT_MANAGER","RECEPTION_STAFF"] as const;
 const back=(eventId:string,kind:"notice"|"error",code:string):never=>redirect(`/events/${eventId}/approver?${kind}=${code}`);
 const serializable={isolationLevel:Prisma.TransactionIsolationLevel.Serializable};
-const known=["FORBIDDEN","NOT_FOUND","NOT_PENDING","PENDING_REMITTANCES","ALREADY_PENDING","INVALID_NEW","SELF_PROMOTION","NEEDS_CURRENT","BAD_CURRENT","SAME","EMERGENCY_NOT_NEEDED","ALREADY_CONFIRMED","APPROVER_CHANGED"];
+const known=["FORBIDDEN","NOT_FOUND","NOT_PENDING","PENDING_REMITTANCES","ALREADY_PENDING","INVALID_NEW","SELF_PROMOTION","NEEDS_CURRENT","BAD_CURRENT","SAME","EMERGENCY_NOT_NEEDED","ALREADY_CONFIRMED","APPROVER_CHANGED","HAS_APPROVER"];
 function errorCode(error:unknown){
   if(error instanceof Error&&known.includes(error.message))return error.message.toLowerCase();
   if(error instanceof Prisma.PrismaClientKnownRequestError&&error.code==="P2034")return "conflict";
@@ -107,4 +107,30 @@ export async function cancelApproverChange(eventId:string,formData:FormData){
     },serializable);
   }catch(error){code=errorCode(error)}
   return back(eventId,code==="cancelled"?"notice":"error",code);
+}
+
+const directSchema=z.object({newApproverId:z.string().min(1),ack:z.literal("on"),returnTo:z.enum(["event","list"]).optional()});
+/** 管理者(SUPER_ADMIN)による決裁権者の直接指定。決裁権者が未設定のイベントだけに使え、すぐに有効になる。変更・交代は申請フロー(requestApproverChange)を使う。 */
+export async function assignApproverDirect(eventId:string,formData:FormData){
+  const actor=await requireUser(["SUPER_ADMIN"]);
+  const parsed=directSchema.safeParse(Object.fromEntries(formData));
+  const to=(kind:"notice"|"error",code:string):never=>parsed.success&&parsed.data.returnTo==="list"?redirect(`/approvers?${kind}=${code}`):back(eventId,kind,code);
+  if(!parsed.success)return to("error","invalid");
+  if(isLocalDemo())return to("notice","demo");
+  let code="assigned";
+  try{
+    await db.$transaction(async tx=>{
+      const event=await tx.event.findUnique({where:{id:eventId},select:{id:true}});
+      if(!event)throw new Error("NOT_FOUND");
+      const current=(await tx.eventRoleAssignment.findMany({where:{eventId,role:"APPROVER",active:true},select:{userId:true}})).map(a=>a.userId);
+      const newApprover=await tx.user.findUnique({where:{id:parsed.data.newApproverId},select:{id:true,role:true,status:true}});
+      const check=checkDirectAssign({actor:{id:actor.id,role:actor.role},newApprover,currentApproverIds:current});
+      if(check!=="OK")throw new Error(check);
+      // 確認待ちの変更申請が残っていると、あとから完了して二重に指定されるため、先に処理してもらう
+      if(await tx.approverChangeRequest.findFirst({where:{eventId,status:"PENDING"}}))throw new Error("ALREADY_PENDING");
+      await tx.eventRoleAssignment.upsert({where:{eventId_userId_role:{eventId,userId:parsed.data.newApproverId,role:"APPROVER"}},update:{active:true,revokedAt:null,assignedBy:actor.id},create:{eventId,userId:parsed.data.newApproverId,role:"APPROVER",assignedBy:actor.id}});
+      await tx.auditLog.create({data:{actorId:actor.id,action:"APPROVER_ASSIGNED_DIRECT",entityType:"Event",entityId:eventId,after:{eventId,approverId:parsed.data.newApproverId}}});
+    },serializable);
+  }catch(error){code=errorCode(error)}
+  return to(code==="assigned"?"notice":"error",code);
 }

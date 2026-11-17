@@ -3,11 +3,11 @@ import {ShieldCheck} from "lucide-react";
 import {AppHeader} from "@/components/app-header";
 import {requireUser} from "@/server/authz";
 import {db} from "@/server/db";
-import {cancelApproverChange,confirmApproverChange,requestApproverChange} from "@/features/ledger/approver-actions";
+import {assignApproverDirect,cancelApproverChange,confirmApproverChange,requestApproverChange} from "@/features/ledger/approver-actions";
 import {EMERGENCY_APPROVALS_REQUIRED} from "@/features/ledger/approver-domain";
 const STAFF=["SUPER_ADMIN","EVENT_MANAGER","RECEPTION_STAFF"] as const;
-const notices:Record<string,string>={requested:"決裁権者の変更を申請しました。必要な確認がそろうと自動で切り替わります。",confirmed:"確認しました。",completed:"決裁権者を切り替えました。",cancelled:"申請を取り消しました。",demo:"ローカルデモでは保存されません。"};
-const errors:Record<string,string>={invalid:"入力内容を確認してください。",forbidden:"この操作を行う権限がありません。",not_found:"対象が見つかりません。",not_pending:"すでに処理済みの申請です。",already_pending:"確認待ちの申請があります。先に完了または取り消してください。",invalid_new:"新しい決裁権者には、有効なスタッフアカウントを指定してください。",self_promotion:"決裁権者がいるイベントで、自分自身を決裁権者にする申請はできません。",needs_current:"交代する現決裁権者を選択してください。",bad_current:"選択した方は現在の決裁権者ではありません。",same:"すでに決裁権者です。",emergency_not_needed:"決裁権者が未設定のため、緊急フローは不要です。",already_confirmed:"すでに確認済みです。",pending_remittances:"旧決裁権者宛ての未完了の送金があります。受領確認または取消のあとに切り替えてください。",conflict:"他の操作と競合しました。もう一度お試しください。"};
+const notices:Record<string,string>={requested:"決裁権者の変更を申請しました。必要な確認がそろうと自動で切り替わります。",confirmed:"確認しました。",completed:"決裁権者を切り替えました。",assigned:"決裁権者を指定しました。この決裁権者だけが帳簿を閲覧できます。",cancelled:"申請を取り消しました。",demo:"ローカルデモでは保存されません。"};
+const errors:Record<string,string>={invalid:"入力内容を確認してください。",forbidden:"この操作を行う権限がありません。",not_found:"対象が見つかりません。",not_pending:"すでに処理済みの申請です。",already_pending:"確認待ちの申請があります。先に完了または取り消してください。",invalid_new:"新しい決裁権者には、有効なスタッフアカウントを指定してください。",self_promotion:"決裁権者がいるイベントで、自分自身を決裁権者にする申請はできません。",needs_current:"交代する現決裁権者を選択してください。",bad_current:"選択した方は現在の決裁権者ではありません。",same:"すでに決裁権者です。",emergency_not_needed:"決裁権者が未設定のため、緊急フローは不要です。",already_confirmed:"すでに確認済みです。",has_approver:"すでに決裁権者がいます。変更する場合は「決裁権者を変更する」から申請してください。",pending_remittances:"旧決裁権者宛ての未完了の送金があります。受領確認または取消のあとに切り替えてください。",conflict:"他の操作と競合しました。もう一度お試しください。"};
 const status:Record<string,string>={PENDING:"確認待ち",COMPLETED:"完了",CANCELLED:"取消"};
 const jst=(d:Date|null)=>d?d.toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
 export default async function ApproverPage({params,searchParams}:{params:Promise<{id:string}>;searchParams:Promise<{notice?:string;error?:string}>}){
@@ -46,7 +46,15 @@ export default async function ApproverPage({params,searchParams}:{params:Promise
         {(user.id===pending.newApproverId&&!pending.newConfirmedAt||user.id===pending.currentApproverId&&!pending.currentConfirmedAt&&!pending.emergency||pending.emergency&&isAdmin&&user.id!==pending.newApproverId&&!pending.approvals.some(a=>a.userId===user.id))&&<form action={confirmApproverChange.bind(null,id)}><input type="hidden" name="requestId" value={pending.id}/><button>{user.id===pending.newApproverId?"決裁権者になることを承諾する":user.id===pending.currentApproverId?"交代を承認する":"緊急変更を承認する"}</button></form>}
         {(user.id===pending.requestedBy||user.id===pending.currentApproverId||user.id===pending.newApproverId||(pending.emergency&&isAdmin))&&<form action={cancelApproverChange.bind(null,id)}><input type="hidden" name="requestId" value={pending.id}/><button className="line-unlink">申請を取り消す</button></form>}
       </div></section>}
-    {!pending&&(isAdmin||isCurrent)&&<section className="collection-section"><h2>{assignments.length>0?"決裁権者を変更する":"決裁権者を指定する"}</h2>
+    {!pending&&isAdmin&&assignments.length===0&&<section className="collection-section"><h2>管理者が直接指定する</h2>
+      <p className="hint">決裁権者が未設定のイベントでは、管理者（SUPER_ADMIN）がここで直接指定でき、すぐに有効になります。指定できるのは、有効なスタッフアカウントです。</p>
+      <form action={assignApproverDirect.bind(null,id)} className="expense-form">
+        <input type="hidden" name="returnTo" value="event"/>
+        <label>決裁権者<select name="newApproverId" required><option value="">選択してください</option>{candidates.map(c=><option key={c.id} value={c.id}>{c.name}（{c.email}）</option>)}</select></label>
+        <label className="check-row"><input type="checkbox" name="ack" required/>指定すると、このイベントの収支・帳簿は決裁権者以外（SUPER_ADMINを含む）に表示されなくなることを理解しました。</label>
+        <button>決裁権者に指定する</button>
+      </form></section>}
+    {!pending&&(isAdmin||isCurrent)&&<section className="collection-section"><h2>{assignments.length>0?"決裁権者を変更する":"本人の承諾を得て指定する（申請）"}</h2>
       <form action={requestApproverChange.bind(null,id)} className="expense-form">
         {assignments.length>0&&<label>交代する現決裁権者<select name="currentApproverId" required>{assignments.map(a=><option key={a.userId} value={a.userId}>{a.user.name}</option>)}</select></label>}
         <label>新しい決裁権者<select name="newApproverId" required><option value="">選択してください</option>{candidates.filter(c=>!assignments.some(a=>a.userId===c.id)).map(c=><option key={c.id} value={c.id}>{c.name}（{c.email}）</option>)}</select></label>
