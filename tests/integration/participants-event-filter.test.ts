@@ -20,7 +20,8 @@ describe.skipIf(!enabled)("参加者画面のイベント切り替え（実DB・
     Object.assign(process.env,{DATABASE_URL:url});({db}=await import("@/server/db"));data=await import("@/features/participants/admin-data");
     const mk=async(key:string,role:"SUPER_ADMIN"|"EVENT_MANAGER")=>{const x=await db.user.create({data:{name:`${key}-${run}`,email:`${key}-${run}@example.com`,role}});u[key]={id:x.id,role}};
     await Promise.all([mk("admin","SUPER_ADMIN"),mk("mgrA","EVENT_MANAGER"),mk("mgrB","EVENT_MANAGER")]);
-    evA=await mkEvent("イベントA",u.mgrA.id,10);evB=await mkEvent("イベントB",u.mgrB.id,20);evC=await mkEvent("イベントC",u.mgrA.id,5);
+    // 選択肢は新しい順の上位200件までなので、他のテストが作るイベントより必ず先頭に来るよう、遠い未来の日付にする
+    const far=20000;evA=await mkEvent("イベントA",u.mgrA.id,far+10);evB=await mkEvent("イベントB",u.mgrB.id,far+20);evC=await mkEvent("イベントC",u.mgrA.id,far+5);
     await register(evA,`A太郎-${run}`);await register(evA,`A花子-${run}`);await register(evB,`B次郎-${run}`);
   });
   afterAll(async()=>{await db?.$disconnect()});

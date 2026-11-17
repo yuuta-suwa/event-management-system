@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {Bell} from "lucide-react";
 import {AppHeader} from "@/components/app-header";
 import {requireUser} from "@/server/authz";
@@ -25,6 +26,7 @@ export default async function AdminNotificationSettingsPage({searchParams}:{sear
     <div className="page-heading"><div><p className="eyebrow">NOTIFICATION SETTINGS</p><h1>通知設定</h1><p>参加登録があるたびに、「参加登録が1件ありました」という通知を受け取れます。</p></div></div>
     {q.notice&&<div className="success-banner">{notices[q.notice]??"保存しました。"}</div>}
     {q.error&&<div className="form-banner" role="alert">{errors[q.error]??"処理に失敗しました。"}</div>}
+    {user.role==="SUPER_ADMIN"&&<p className="collection-links"><Link href="/settings/notifications/recipients">他の人を通知の宛先に追加する →</Link></p>}
     <section className="collection-section"><h2><Bell size={18}/> 参加登録の通知</h2>
       <p className="hint">通知を受け取れるのは、管理者（SUPER_ADMIN）と、そのイベントの担当者です。通知には氏名などの個人情報は含めず、イベント名と登録件数だけを送ります。詳細は、ログインが必要な参加者名簿で確認します。</p>
       <form action={saveAdminNotificationPref} className="settings-card">

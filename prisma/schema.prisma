@@ -155,6 +155,7 @@ model Participant {
   incomingTransfers   TicketTransfer[]    @relation("NewParticipant")
   outgoingTransfers   TicketTransfer[]    @relation("OldParticipant")
   lineFriend          LineFriend?
+  adminNotificationRecipient AdminNotificationRecipient?
 
   @@index([email])
   @@index([phone])
@@ -842,4 +843,15 @@ model AdminNotificationLog {
 
   @@index([userId, createdAt])
   @@index([eventId, createdAt])
+}
+
+/// 管理者(SUPER_ADMIN)が追加する「参加登録の通知を受け取る人」。LINE連携済みの参加者から選び、全イベントの通知が届く。
+/// 宛先のLINEは送信時に参加者の現在の連携から引く(連携解除・変更に追随し、古いIDへ送らない)。
+model AdminNotificationRecipient {
+  id            String      @id @default(cuid())
+  participantId String      @unique
+  active        Boolean     @default(true)
+  addedBy       String
+  createdAt     DateTime    @default(now())
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 }

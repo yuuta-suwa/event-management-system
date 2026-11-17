@@ -90,3 +90,9 @@ body{font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic",system-ui,sans-serif
 .header-actions>a[aria-label="通知設定"]{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;color:var(--ink)}
 .header-actions>a[aria-label="通知設定"].active{background:#e8f1ef}
 .header-actions>a[aria-label="通知設定"] svg{width:18px;height:18px}
+
+/* 通知の宛先: 表の見た目 */
+.collection-section .data-table{width:100%;max-width:900px}
+.collection-section .data-table td strong+small{display:block;margin-top:2px;color:var(--muted);font-size:11px}
+.collection-section .data-table td .inline-form{flex-wrap:nowrap}
+.collection-section .data-table td .inline-form button{white-space:nowrap}

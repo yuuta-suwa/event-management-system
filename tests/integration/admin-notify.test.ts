@@ -25,6 +25,7 @@ describe.skipIf(!enabled)("参加登録の管理者通知（実DB・使い捨て
     Object.assign(process.env,{DATABASE_URL:url,QR_TOKEN_SECRET:"t".repeat(48),RESEND_API_KEY:"re_test",EMAIL_FROM:"事務局 <t@example.com>",LINE_MESSAGING_ACCESS_TOKEN:"line-token",NEXT_PUBLIC_APP_URL:"https://app.example.test"});
     ({db}=await import("@/server/db"));svc=await import("@/features/admin-notify/service");act=await import("@/features/admin-notify/actions");reg=await import("@/features/participants/actions");
     await db.adminNotificationPref.deleteMany({});// 使い捨てテストDBのみ: 過去の実行で残った設定行を掃除
+    await db.adminNotificationRecipient.deleteMany({});// 追加された宛先(別テストの残り)にも送られてしまうため掃除
     const mk=async(key:string,role:"SUPER_ADMIN"|"EVENT_MANAGER"|"RECEPTION_STAFF",status:"ACTIVE"|"SUSPENDED"="ACTIVE")=>{const email=`${key}-${run}@example.com`;const x=await db.user.create({data:{name:`${key}-${run}`,email,role,status}});u[key]={id:x.id,role,name:x.name,email}};
     await Promise.all([mk("admin1","SUPER_ADMIN"),mk("admin2","SUPER_ADMIN"),mk("adminOff","SUPER_ADMIN","SUSPENDED"),mk("mgr","EVENT_MANAGER"),mk("mgr2","EVENT_MANAGER"),mk("staff","RECEPTION_STAFF")]);
     const category=await db.eventCategory.create({data:{name:`N-${run}`,slug:`n-${randomUUID()}`}});const day=new Date(Date.now()+30*86400000);
