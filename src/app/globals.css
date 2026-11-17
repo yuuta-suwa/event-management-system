@@ -73,3 +73,9 @@ body{font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic",system-ui,sans-serif
 .report-text{width:100%;margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:12px;line-height:1.7}.report-body section{margin:0 0 18px;padding:18px 20px;background:#fff;border:1px solid var(--line);border-radius:14px;break-inside:avoid}.report-body h2{margin:0 0 10px;font-size:15px}
 .report-print{max-width:800px;margin:0 auto;padding:24px;background:#fff}.report-print header{margin-bottom:16px;border-bottom:2px solid var(--ink)}.report-print h1{margin:0 0 6px;font-size:22px}.report-print .data-table tr{break-inside:avoid}
 @page{size:A4 portrait;margin:14mm}@media print{.no-print{display:none!important}.report-print{padding:0;max-width:none}.report-body section{border:0;padding:8px 0;border-radius:0}body{background:#fff}}
+
+/* 参加者: イベント切り替え */
+.participant-search{max-width:900px;flex-wrap:wrap}
+.participant-search select{height:36px;min-width:200px;max-width:100%;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;font-weight:700}
+.participant-search input{min-width:180px}
+@media(max-width:640px){.participant-search select,.participant-search input{flex:1 1 100%}}
