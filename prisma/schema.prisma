@@ -109,6 +109,7 @@ model User {
   performedCheckins   Checkin[]             @relation("CheckinStaff")
   transfers           TicketTransfer[]      @relation("TransferOperator")
   auditLogs           AuditLog[]            @relation("AuditActor")
+  adminNotificationPref AdminNotificationPref?
 }
 
 model StaffProfile {
@@ -815,4 +816,30 @@ model ReportShare {
   report    EventReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
 
   @@index([reportId])
+}
+
+/// 管理者(SUPER_ADMIN・イベント担当者)への「参加登録があったとき」の通知設定。行がなければ既定値(メールON・LINEなし)。
+model AdminNotificationPref {
+  userId            String   @id
+  registrationEmail Boolean  @default(true)
+  registrationLine  Boolean  @default(false)
+  lineUserId        String?
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// 管理者通知の送信記録。dedupeKey(登録×宛先×チャネル)で二重送信を防ぎ、失敗・未設定も残す。
+model AdminNotificationLog {
+  id             String   @id @default(cuid())
+  eventId        String
+  registrationId String?
+  userId         String
+  channel        String
+  status         String   @default("PENDING")
+  error          String?
+  dedupeKey      String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([eventId, createdAt])
 }

@@ -5,6 +5,7 @@ import {db} from "@/server/db";
 import {isLocalDemo} from "@/server/authz";
 import {queueParticipantNotification} from "@/features/notifications/service";
 import {kickEmailDelivery,queueTicketEmail} from "@/features/email/service";
+import {kickAdminRegistrationNotice} from "@/features/admin-notify/service";
 import {issueRegistrationToken} from "./registration-token";
 import {qrTokenSecret} from "@/features/tickets/token";
 import {generateLineLinkCode} from "./line-link-code";
@@ -31,5 +32,5 @@ export async function registerParticipant(_:RegistrationState,formData:FormData)
     if(!known)console.error("registerParticipant failed",e);
     return {message:known??"ただいま混み合っています。入力内容はそのまま残っています。もう一度「参加を申し込む」を押してください。",values};
   }
-  kickEmailDelivery();const myToken=issueRegistrationToken(result.registrationId,qrTokenSecret());redirect(`/apply/${input.eventId}/complete?mine=${myToken}${result.duplicate?"&duplicate=1":""}`)
+  kickEmailDelivery();if(!result.duplicate)kickAdminRegistrationNotice(result.registrationId,input.quantity);const myToken=issueRegistrationToken(result.registrationId,qrTokenSecret());redirect(`/apply/${input.eventId}/complete?mine=${myToken}${result.duplicate?"&duplicate=1":""}`)
 }

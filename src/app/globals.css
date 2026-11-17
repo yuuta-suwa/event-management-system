@@ -79,3 +79,14 @@ body{font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic",system-ui,sans-serif
 .participant-search select{height:36px;min-width:200px;max-width:100%;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;font-weight:700}
 .participant-search input{min-width:180px}
 @media(max-width:640px){.participant-search select,.participant-search input{flex:1 1 100%}}
+/* 通知設定(管理者) */
+.settings-card{display:grid;gap:14px;max-width:640px;padding:20px;margin:0 0 14px;background:#fff;border:1px solid var(--line);border-radius:14px}
+.settings-card label{display:grid;gap:6px;font-size:13px}
+.settings-card label.check-row{display:flex;align-items:center;gap:10px;font-weight:700}
+.settings-card input[type=checkbox]{width:18px;height:18px;accent-color:var(--teal)}
+.settings-card input:not([type=checkbox]){height:44px;padding:0 12px;border:1px solid #cbd9d6;border-radius:10px;font-size:14px}
+.settings-card button{justify-self:start;height:42px;padding:0 18px;border:0;border-radius:10px;background:var(--teal);color:#fff;font-weight:800}
+.settings-card .hint{margin:0}
+.header-actions>a[aria-label="通知設定"]{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;color:var(--ink)}
+.header-actions>a[aria-label="通知設定"].active{background:#e8f1ef}
+.header-actions>a[aria-label="通知設定"] svg{width:18px;height:18px}
