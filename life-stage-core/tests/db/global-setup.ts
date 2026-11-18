@@ -26,6 +26,13 @@ export default async function setup() {
   const db = new Client({ connectionString: ADMIN_URL.replace(/\/[^/]*$/, `/${TEST_DB}`) });
   await db.connect();
   await db.query(readFileSync(path.join(ROOT, "supabase/local/supabase_shim.sql"), "utf8"));
+  // Supabase の旧既定（public の新規テーブル・関数を anon/authenticated へ自動 GRANT）を再現し、
+  // その状態でもマイグレーション適用後に不要な権限が残らないことを検証する（LEI APP HUB の手法）
+  await db.query(`
+    alter default privileges for role postgres in schema public grant all on tables to anon, authenticated, service_role;
+    alter default privileges for role postgres in schema public grant all on sequences to anon, authenticated, service_role;
+    alter default privileges for role postgres in schema public grant execute on functions to anon, authenticated, service_role;
+  `);
   const dir = path.join(ROOT, "supabase/migrations");
   for (const f of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
     try {
