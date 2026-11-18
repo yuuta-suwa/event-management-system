@@ -16,7 +16,8 @@
     "test:db": "vitest run tests/db",
     "db:local:start": "bash scripts/local-db.sh start",
     "db:local:stop": "bash scripts/local-db.sh stop",
-    "db:local:reset": "bash scripts/local-db.sh reset"
+    "db:local:reset": "bash scripts/local-db.sh reset",
+    "check:bundle": "node scripts/check-bundle-secrets.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

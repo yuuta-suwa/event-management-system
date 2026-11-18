@@ -35,6 +35,7 @@ const MESSAGES: Record<string, { ja: string; en: string }> = {
   INVALID_RELATION: { ja: "担当区分が正しくありません。", en: "Invalid relation." },
   INVALID_SETTING: { ja: "設定値が正しくありません。", en: "Invalid setting." },
   SETTING_LOCKED: { ja: "この設定は変更できません。", en: "This setting is locked." },
+  SCOPE_REQUIRED: { ja: "この役割には対象範囲（例：事業ID）の入力が必要です。", en: "Scope is required for this role." },
   REASON_REQUIRED: { ja: "理由を入力してください。", en: "Reason is required." },
   DELETION_ALREADY_REQUESTED: { ja: "削除手続きは既に申請済みです。", en: "Deletion already requested." },
   CONFIRMATION_MISMATCH: { ja: "確認用メールアドレスが一致しません。", en: "Confirmation does not match." },

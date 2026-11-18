@@ -4,7 +4,7 @@ import { PageHeader, formatDateTime } from "@/components/ui";
 
 const ACTION_GROUPS: [string, string][] = [
   ["", "すべて"], ["invitation.", "招待"], ["entitlement.", "権限"], ["user.", "状態"], ["role.", "役割"],
-  ["scope.", "担当範囲"], ["mentor.", "伴走担当"], ["share.", "共有"], ["transfer.", "転送"], ["deletion.", "削除"], ["setting.", "設定"], ["data.", "出力"],
+  ["scope.", "担当範囲"], ["mentor.", "伴走担当"], ["share.", "共有"], ["transfer.", "転送"], ["deletion.", "削除"], ["setting.", "設定"], ["data.", "出力"], ["app.", "アプリ登録"], ["app_role.", "アプリ役割"],
 ];
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<{ group?: string; failed?: string; page?: string }> }) {

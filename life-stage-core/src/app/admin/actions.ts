@@ -92,6 +92,35 @@ export async function setRole(formData: FormData) {
   back(formData, `/admin/users/${id.data}`, code ? `error=${code}` : "ok=role");
 }
 
+// ---------------- アプリ固有ロール・公開段階 ----------------
+export async function setAppRole(formData: FormData) {
+  const id = uuid.safeParse(formData.get("user_id"));
+  // 付与フォームは "APP03:reviewer" 形式の role_key、取消フォームは app_code + role_code
+  const roleKey = String(formData.get("role_key") ?? "");
+  if (roleKey.includes(":")) {
+    const [a, r] = roleKey.split(":");
+    formData.set("app_code", a);
+    formData.set("role_code", r);
+  }
+  const app = String(formData.get("app_code") ?? "");
+  if (!id.success || !/^[A-Z][A-Z0-9_]{1,31}$/.test(app)) back(formData, "/admin/users", "error=NOT_FOUND");
+  const { code } = await call("admin_set_app_role", {
+    p_user_id: id.data, p_app_code: app, p_role_code: String(formData.get("role_code") ?? ""),
+    p_grant: formData.get("grant") === "true", p_scope_key: String(formData.get("scope_key") ?? "").slice(0, 120),
+    p_reason: reason(formData.get("reason")),
+  });
+  back(formData, `/admin/users/${id.data}`, code ? `error=${code}` : "ok=app-role");
+}
+
+export async function setAppLifecycle(formData: FormData) {
+  const app = String(formData.get("app_code") ?? "");
+  if (!/^[A-Z][A-Z0-9_]{1,31}$/.test(app)) back(formData, "/admin/settings", "error=NOT_FOUND");
+  const { code } = await call("admin_set_app_lifecycle", {
+    p_app_code: app, p_lifecycle: String(formData.get("lifecycle") ?? ""), p_reason: reason(formData.get("reason")) ?? "",
+  });
+  back(formData, "/admin/settings", code ? `error=${code}` : "ok=lifecycle");
+}
+
 // ---------------- 担当 ----------------
 export async function setScope(formData: FormData) {
   const admin = uuid.safeParse(formData.get("admin_id"));

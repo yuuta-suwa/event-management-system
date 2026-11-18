@@ -4,7 +4,17 @@
  * JWT のメタデータは一切使わない。
  */
 export type Role = "super_admin" | "admin" | "mentor";
-export type AppAccess = { code: string; name_en: string; name_ja: string; granted: boolean };
+export type AppLifecycle = "planned" | "development" | "trial" | "active" | "retired";
+export type AppAccess = {
+  code: string;
+  name_en: string;
+  name_ja: string;
+  granted: boolean;
+  lifecycle?: AppLifecycle;
+  base_url?: string | null;
+  /** アプリ固有ロール（例：APP03 の審査者）。scope は事業ID等 */
+  app_roles?: { role: string; scope: string }[];
+};
 export type Access = {
   authenticated: boolean;
   user_id?: string;
