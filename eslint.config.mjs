@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // LIFE STAGE COMMON CORE は独立プロジェクト（独自の lint 設定を持つ）
+    "life-stage-core/**",
   ]),
 ]);
 

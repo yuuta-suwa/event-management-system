@@ -1,0 +1,9 @@
+.local-pg/
+.next/
+node_modules/
+.env*
+!.env.example
+*.tsbuildinfo
+next-env.d.ts
+coverage/
+backups/

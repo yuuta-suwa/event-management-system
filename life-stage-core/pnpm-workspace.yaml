@@ -1,0 +1,7 @@
+# life-stage-core は独立したワークスペース（親ディレクトリの既存アプリと依存を共有しない）
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
+onlyBuiltDependencies:
+  - "esbuild"
+  - "unrs-resolver"

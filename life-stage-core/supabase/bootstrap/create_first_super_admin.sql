@@ -1,0 +1,14 @@
+-- =====================================================================
+-- 初期 Super Admin の招待リンク発行（初回のみ・Supabase SQL Editor で実行）
+--
+-- 1. 下の email を Super Admin 担当者の Google アカウントに書き換えて実行
+-- 2. 結果の token を使い、次のURLを本人だけに送付（有効期限 24 時間）
+--      https://<サイトURL>/invite?token=<token>
+-- 3. 本人がそのURLを開き、該当 Google アカウントでログイン → 受諾
+-- 4. 受諾後、/admin/mfa で二段階認証を登録
+--
+-- ※ 有効な Super Admin が既に存在する場合は SUPER_ADMIN_EXISTS で失敗する（乗っ取り防止）
+-- ※ API（ブラウザ）からは実行できない関数（service_role / SQL Editor 専用）
+-- ※ 実行結果の token は画面にのみ表示し、チャット・メール本文・チケット等に貼らないこと
+-- =====================================================================
+select private.bootstrap_super_admin('super-admin@example.com');
