@@ -70,3 +70,22 @@ create policy own_rows on public.app01_stage_responses for all to authenticated
 ```
 - 管理者用の閲覧ポリシーは**作らない**（個人データは本人と明示共有先のみ）。共有先閲覧は `data_shares` を参照するポリシーを追加する（`app_snapshots_select` を参照）。
 - 想定テーブル（SPEC §5）：life_blueprints, stage_responses, vision_assets（APP01）／growth_plans, capability_assessments, roadmap_cells（APP02）／career_maps, career_cells, achievements, certifications, title_awards（APP03）。詳細カラムは各APP仕様と実装確認後に確定。
+
+## アプリ登録マスター（migration 0009）
+
+| テーブル | 用途 | 主な制約 |
+|---|---|---|
+| `apps`（拡張） | `lifecycle`（planned/development/trial/active/retired）、`base_url`（https のみ）、`allowed_redirect_origins`（https オリジンのみ）、`data_classification`（standard/sensitive）、`owner_label`、`launched_at`、`retired_at`。**`is_active` は lifecycle が trial/active のとき true になる自動算出列** | CHECK 制約 |
+| `app_role_definitions` | アプリ固有ロールの定義（APP02 `legacy_eligible`、APP03 `reviewer`・`business_admin`） | PK(app_code, role_code)、grantable_by、scoped |
+| `user_app_roles` | アプリ固有ロールの付与（scope_key＝事業ID等） | 有効な (user, app, role, scope) は一意 |
+| `app_snapshot_types` | 各アプリが確定・送出するデータの種類・版・必須項目 | PK(app_code, snapshot_type, schema_version) |
+| `transfer_routes` | 連携経路（APP01→APP02、APP02→APP03） | 元の種類・版への FK、(元, 種類, 版, 先) 一意 |
+
+追加 RPC：`admin_set_app_role`（担当範囲内・grantable_by に応じ SA のみ・アプリ権限が前提・範囲必須チェック）、`admin_set_app_lifecycle`（SA のみ・理由必須）。
+追加判定関数：`private.has_app_role(app, role, scope)`（各APPの RLS から使用。アプリ権限・本人の active を含めて判定）。
+
+### 新アプリ（APP04・LIFE ACCOUNTING 等）の追加手順
+1. migration で `apps` に `lifecycle='planned'` で登録（必要なら `app_role_definitions`・`app_snapshot_types`・`transfer_routes` も登録）。
+2. 発注者承認後、SETTINGS 画面（Super Admin）で `trial` → 試験運用者に権限付与 → `active`。
+3. アプリ固有テーブルは本書「各APP固有テーブルの追加テンプレート」に従い、RLS で `private.has_app_access('<APP>')`（必要に応じ `private.has_app_role`）を使う。
+**共通基盤のコード変更は不要。**

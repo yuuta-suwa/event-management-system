@@ -80,3 +80,45 @@ pnpm db:local:start   # 127.0.0.1:54329 に PostgreSQL（互換シム＋マイ�
 pnpm test
 pnpm dev              # Supabase 接続先がない場合はトップに設定未了の案内を表示
 ```
+
+## 7. 開発プロジェクトの現状（2026-11-18）
+
+| 項目 | 状態 |
+|---|---|
+| Supabase プロジェクト | `life-stage-common-core-dev`（組織 LEI STYLE、**東京 ap-northeast-1、Free プラン**） |
+| migration | `supabase/migrations` の9本を適用済み（`supabase/local/` のシムは未適用） |
+| 実DB検証 | 権限の静的検査・ロールバック方式の受入シナリオとも合格（TEST_PLAN §4） |
+| Auth 設定 | **未設定**（下記 7-1 をダッシュボードで実施。Google OAuth のクライアントシークレット登録を伴うため発注者側の操作） |
+| Vercel | 未作成（専用 private リポジトリ作成後に接続） |
+| 利用者データ | なし（検証データはすべてロールバック済み） |
+
+### 7-1. ダッシュボードで行う残りの設定（発注者または指定担当者）
+1. **Google Cloud Console** で OAuth クライアント（ウェブアプリ）を作成
+   - 承認済みのリダイレクト URI：`https://<開発プロジェクトのURL>/auth/v1/callback`（Supabase の Authentication > Providers > Google 画面に表示される値）
+   - 同意画面の公開範囲：試験運用中は「テスト」＋テストユーザー5名の追加でも可
+2. Supabase **Authentication > Sign In / Providers**
+   - Google：有効化し、クライアントID・シークレットを入力（シークレットはここにだけ保存。チャットやリポジトリに貼らない）
+   - Email：**無効化**（パスワード／メールリンクでの新規登録を止める。有効のままでも招待受諾は Google 必須のため利用はできないが、不要な auth ユーザー作成を防ぐ）
+3. **Authentication > URL Configuration**
+   - Site URL：STG の URL（Vercel 作成後）
+   - Redirect URLs：`https://<STG>/auth/callback`（ローカル確認用に `http://localhost:3000/auth/callback` も可）
+4. **Authentication > Multi-Factor**：TOTP が有効であることを確認（既定で有効）
+5. **Authentication > Sessions**（任意）：アクセストークン有効期限の短縮を検討（停止後の JWT 残存時間を短くする。DB 側では即時遮断済み）
+6. 初期 Super Admin：SQL Editor で `supabase/bootstrap/create_first_super_admin.sql` を実行（メールを書き換える）
+
+### 7-2. Free プランの注意点
+- 7日間利用が少ないと**自動休止**する（休止中はログイン不可。ダッシュボードから再開）。試験運用中は毎日数回の利用があれば通常は休止しない。
+- 自動バックアップがないため、試験運用中は週1回 `scripts/backup.sh` で手動取得する（DB パスワードが必要）。
+- 有効なプロジェクトは組織あたり2件まで（現在はこの開発プロジェクトのみ有効）。
+
+## 8. 運用費用（2026-11-18 時点の概算。正式な金額は各社の料金ページで要確認）
+
+| 項目 | 試験運用（現在） | 本番運用（推奨・要承認） | 備考 |
+|---|---|---|---|
+| Supabase | **$0**（Free） | Pro **$25/月**（組織単位。$10 分のコンピュート枠込みで小規模1プロジェクトは追加費用なしの見込み） | Pro で自動休止なし・日次バックアップ（7日保持）。PITR は任意で＋約 $100/月〜。本番とSTGを分けると2プロジェクト目の計算資源（約 $10/月）が追加 |
+| Vercel | 既存チーム GMPDCASP の契約内（プラン未確認） | 同左 | Hobby プランは商用利用不可。商用なら Pro（$20/利用者/月） |
+| Google OAuth | $0 | $0 | 同意画面の審査は外部公開時のみ |
+| 招待メール送信 | $0（手動送付） | 送信サービスを採用する場合は月数百通まで無料枠のある製品が多い | 方式は未決（Q-03） |
+| ドメイン | なし（Vercel の URL） | 年 数千円 | 本番ドメインは未決（Q-08） |
+| 有料 AI API | 使用しない | 使用しない | 指示どおり |
+| **合計（目安）** | **$0/月** | **約 $25〜45/月**（Supabase Pro＋必要に応じSTG）＋ Vercel 契約分 | Pro への変更は別途承認（D-22） |

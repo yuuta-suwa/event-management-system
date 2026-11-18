@@ -6,8 +6,9 @@ LIFE STAGE APP01（THE FINAL DISCOVERY）・APP02（SELF-REALIZATION ENGINE）�
 > このディレクトリは独立したプロジェクトです。親ディレクトリの「イベント管理システム」とはコード・依存関係・ビルドを共有しません。
 
 ## 状態（2026-11-18）
-- Phase 0〜5 をローカル環境で実装・検証済み（自動テスト 84 件合格）。
-- Supabase 開発プロジェクト・Vercel STG は**未構築（発注者承認待ち）**。Google ログインと管理画面の実環境確認、5名試験運用は未実施。
+- 共通認証・招待制・アプリ別権限・管理画面・共通DB・アプリ登録マスターを実装（自動テスト 97 件合格）。
+- Supabase 開発プロジェクト（東京・Free）に migration 適用済み。実 Supabase で権限・主要受入シナリオを検証済み。
+- 未実施：専用 private リポジトリへの移設、Vercel STG、Google OAuth 設定、画面での受入テスト、5名試験運用。
 - 詳細：[docs/PROGRESS.md](docs/PROGRESS.md)、依頼・未決事項：[docs/TODO.md](docs/TODO.md)
 
 ## 技術構成

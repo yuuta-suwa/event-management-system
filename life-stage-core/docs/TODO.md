@@ -3,10 +3,11 @@
 ## 発注者への依頼（操作・承認が必要）
 | ID | 内容 | 理由 |
 |---|---|---|
-| R-01 | Supabase に共通基盤用の**開発プロジェクト**を作成してよいか（無料枠 or 有料。既存3プロジェクトは停止中） | 課金・外部アカウント操作のため承認が必要 |
+| R-01 | ~~Supabase 開発プロジェクトの作成~~ | **完了**：`life-stage-common-core-dev`（東京・Free）を作成、migration 適用済み |
 | R-02 | 休止中の Supabase「LIFE STAGE Apps」を**90日の復旧期限内に**一度だけ再開し、構成記録・バックアップ取得後に再休止してよいか | 期限後はワンクリック復旧不可。再開は外部状態の変更（データは変更しない） |
-| R-03 | Vercel に共通基盤 STG 用プロジェクトを作成してよいか（Root Directory=`life-stage-core`） | 外部アカウント操作 |
-| R-04 | 共通基盤を専用の **private** リポジトリへ移設してよいか（現リポジトリは public） | 仕様は非公開リポジトリ |
+| R-03 | Vercel に共通基盤 STG 用プロジェクトを作成（専用リポジトリに接続） | 承認済み（試験運用環境）。リポジトリ作成待ち。本番公開は別途承認 |
+| R-04 | 共通基盤を専用 private リポジトリへ移設 | 承認済み。**R-08 のリポジトリ作成待ち** |
+| R-08 | GitHub に**空の private リポジトリ**を作成（推奨名：`yuuta-suwa/life-stage-common-core`、README 等は作らない）し、このセッションから push できるよう Claude GitHub App の対象に追加 | このセッションは新規リポジトリを作成できないため |
 | R-05 | Google Cloud で OAuth クライアント作成（または作成者の指定） | 秘密情報の登録 |
 | R-06 | 初期 Super Admin の Google アカウント（メール）の指定 | 初期管理者の作成 |
 | R-07 | 試験運用のテスト利用者5名（Admin1・Mentor1・User2 ＋ Super Admin） | Phase 6 |
@@ -22,11 +23,11 @@
 | Q-06 | APP02 LEGACY 権限付与者、APP03 認定審査者・事業管理者の権限を共通基盤で持つか | 未実装 |
 | Q-07 | APP02 の6能力の英語コード名 | attraction/recruitment/education/development/operations/management（D-13） |
 | Q-08 | 本番ドメイン、各APPのドメイン構成（SSO方式に影響） | 未定 |
-| Q-09 | LIFE ACCOUNTING（人生経理）を APP04 として共通基盤に載せるか | 無効状態で登録のみ（D-08） |
+| Q-09 | LIFE ACCOUNTING を試験運用・公開する時期 | 登録マスターに planned で登録済み。公開段階の変更は承認後 |
 | Q-10 | APP02/APP03 PDF の表の正確な内容（テキスト抽出で一部崩れの可能性） | 抽出テキストで判断 |
 | Q-11 | 利用期限（招待後のアカウント有効期限）の要否 | 未実装 |
 | Q-12 | 既存 LIFE STAGE 2.0（localStorage 版・Supabase 版）利用者の移行方針 | 未着手 |
-| Q-13 | 既存 LIFE STAGE 3.0（ChatGPT Sites）を APP03 の前身とみなすか（APP02仕様とAPP03仕様で記載が矛盾） | 前身とみなさない（新規開発前提） |
+| Q-13 | ~~LIFE STAGE 3.0 と APP03 の関係~~ | **解決**：別アプリとして扱う（D-28） |
 | Q-14 | LEI APP HUB（app-access-system の未マージブランチ）を将来、共通基盤を参照するポータルにするか | 対象外 |
 | Q-15 | 既存 LIFE STAGE 2.0 利用者に新 APP02 へのデータ移行を提供するか | 未着手 |
 | Q-16 | Supabase 組織のプラン（現在 Free。自動休止・バックアップなし）を試験運用前に Pro へ上げるか | 未定 |

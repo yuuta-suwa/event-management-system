@@ -4,7 +4,7 @@
 
 | ID | 日付 | 判断 | 理由 / 根拠 | 状態 |
 |---|---|---|---|---|
-| D-01 | 2026-11-18 | 共通基盤を既存リポジトリ `event-management-system` 内の独立ディレクトリ `life-stage-core/`（独自 package/lockfile/tsconfig）に実装 | 書き込み可能なリポジトリがこれのみ。既存イベント管理アプリとはコード・依存・ビルドを共有しない。既存側は `tsconfig`/`eslint`/`vitest` の除外設定3行のみ変更（機能変更なし、既存テスト45件合格を確認） | **暫定**。仕様は「GitHub 非公開リポジトリ」だが本リポジトリは **public**。専用 private リポジトリへの移設を推奨（R-04） |
+| D-01 | 2026-11-18 | 共通基盤を既存リポジトリ `event-management-system` 内の独立ディレクトリ `life-stage-core/`（独自 package/lockfile/tsconfig）に実装 | 書き込み可能なリポジトリがこれのみ。既存イベント管理アプリとはコード・依存・ビルドを共有しない。既存側は `tsconfig`/`eslint`/`vitest` の除外設定3行のみ変更（機能変更なし、既存テスト45件合格を確認） | **移設予定**（D-21）。履歴付きの切り出しブランチを作成済み |
 | D-02 | 2026-11-18 | 権限判定はすべて DB の現在状態（profiles.status / admin_roles / app_entitlements / admin_user_scopes / mentor_assignments）で行い、JWT の user_metadata・app_metadata は使わない | Ver1.1「ユーザーが変更できるメタデータを権限判定に使用しない」、SPEC §7「JWT内の古い権限情報だけで判定しない」 | 確定 |
 | D-03 | 2026-11-18 | 例外として認証強度（aal1/aal2）は Supabase Auth が署名した JWT の `aal` クレームで判定 | 利用者が改変できないサーバー発行値。Supabase MFA の公式方式 | 確定 |
 | D-04 | 2026-11-18 | テーブルへの直接書き込みは全面禁止。書き込みは SECURITY DEFINER RPC（冒頭で権限・MFA を検証し監査ログを記録）からのみ | 「UIの非表示だけで制限しない」「全保護APIでサーバー側認可」「管理者操作は監査必須」を DB 層で強制 | 確定 |
@@ -24,3 +24,18 @@
 | D-18 | 2026-11-18 | Supabase の新キー方式（publishable / secret）、`@supabase/ssr`、Next.js 16 `proxy.ts` ＋ `getClaims()` を採用 | Supabase 公式ドキュメント（2026-11 時点）で推奨。旧 anon/service_role キーは 2026 年末まで | 確定 |
 | D-19 | 2026-11-18 | 資料間の差異：Ver1.1 の必須テーブルは9つ、SPEC v1.0 は 20 の論理テーブル。Ver1.1（最新）に従い、アプリ固有テーブル（life_blueprints 等）は作成せず API 契約のみ定義 | 「最新の発注者承認事項が優先」 | 確定 |
 | D-20 | 2026-11-18 | 資料間の差異：Ver1.1 の管理画面は7画面、SPEC は TRANSFERS を含む8画面。両方を満たすため8画面を実装 | 上位互換 | 確定 |
+
+## STEP 01 承認後（2026-11-18 発注者回答を受けて）
+
+| ID | 日付 | 判断 | 理由 / 根拠 | 状態 |
+|---|---|---|---|---|
+| D-21 | 2026-11-18 | **案C（新規構築）で確定**。共通基盤は専用 private リポジトリへ分離する | 発注者承認（条件1） | 確定（リポジトリ作成待ち） |
+| D-22 | 2026-11-18 | 開発用 Supabase プロジェクト `life-stage-common-core-dev` を**東京（ap-northeast-1）・Free プラン**で新規作成し、migration 9本を適用 | 発注者承認（条件2）。作成時の見積り費用 $0 | 確定 |
+| D-23 | 2026-11-18 | LEI APP HUB から取り込む：既定権限の取り消し、旧既定（自動 GRANT）再現テスト、配布物の秘密鍵検査。取り込まない：初回ログイン時の profile 自動作成、招待メール一致のみでの自動有効化 | 発注者条件4（セキュリティ確認のうえ取り込み）。後者2つは招待制要件に反する | 確定 |
+| D-24 | 2026-11-18 | 関数の PUBLIC 実行権限は**スキーマ指定なしの既定権限**で取り消す | テストで、`IN SCHEMA` 指定の既定権限では PUBLIC の EXECUTE を取り消せない（LEI APP HUB の記述でも効いていない）ことを確認したため | 確定 |
+| D-25 | 2026-11-18 | アプリ登録マスター方式：`apps.lifecycle`（planned/development/trial/active/retired）、`app_role_definitions`/`user_app_roles`、`app_snapshot_types`、`transfer_routes`。`apps.is_active` は lifecycle から自動算出 | 発注者条件5。新アプリはデータ登録だけで権限付与・判定・連携が機能 | 確定 |
+| D-26 | 2026-11-18 | 公開段階の変更は Super Admin のみ・理由必須・監査記録。画面でも「発注者の承認済みか」を確認 | 本番公開・新アプリ有効化は事前承認制（条件10） | 確定 |
+| D-27 | 2026-11-18 | アプリ固有ロールの初期定義：APP02 `legacy_eligible`、APP03 `reviewer`・`business_admin`（範囲必須）。付与は Super Admin のみ、アプリ利用権限が前提 | 各APP仕様書の権限記述。付与者は未決（Q-06）のため最も厳しい設定 | 暫定 |
+| D-28 | 2026-11-18 | LIFE STAGE 3.0 と APP03 MAKE IT REAL は**別アプリ**として扱う。LIFE STAGE 3.0 はアプリ登録マスターに登録しない | 発注者回答（条件6）。Q-13 は解決 | 確定 |
+| D-29 | 2026-11-18 | Supabase Advisors の WARN「ログイン利用者が SECURITY DEFINER 関数を実行できる」（29件）は**設計上の意図として受容** | 書き込みを RPC に限定し、各関数の冒頭で本人状態・管理者権限・MFA を DB で検証する設計。関数ごとの拒否テストあり | 確定 |
+| D-30 | 2026-11-18 | 旧 Supabase「LIFE STAGE Apps」は削除しない。再開は発注者承認後に1回のみ（記録・バックアップ後に再休止） | 発注者条件7 | 承認待ち（R-02） |

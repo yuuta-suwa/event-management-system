@@ -45,3 +45,20 @@ CSP（default-src 'self'、frame-ancestors 'none'、connect-src は Supabase の
 
 ## インシデント時
 `docs/OPERATIONS.md` の「インシデント対応」を参照（該当者の即時停止、キーのローテーション、監査ログ確認）。
+
+## LEI APP HUB の設計パターンのセキュリティ確認（D-23, D-24）
+
+| パターン | 判定 | 理由 |
+|---|---|---|
+| `ALTER DEFAULT PRIVILEGES` で新規テーブル・シーケンスの自動公開を停止 | **採用** | Supabase の旧既定（自動 GRANT）でも安全側になる |
+| 同上で関数の PUBLIC 実行権限を `IN SCHEMA` 指定で取り消し | **修正して採用** | スキーマ単位の既定権限では PUBLIC の EXECUTE は取り消せないことをテストで確認。スキーマ指定なしの全体既定で取り消す |
+| 旧既定の自動 GRANT を再現した DB でのテスト | **採用** | `tests/db/global-setup.ts`・`tests/db/registry.test.ts` |
+| 配布物の秘密鍵・service_role・ソースマップ検査 | **採用** | `pnpm check:bundle`（`.next/static` を検査） |
+| 列単位の最小 GRANT | 既に採用済み | invitations の token_hash を除外 |
+| Google 初回ログイン時の profile 自動作成（pending） | **不採用** | 招待制要件（認証だけで行を作らない）に反する |
+| 招待メール一致だけで自動 active 化 | **不採用** | 推測困難な単回トークンを要件とするため |
+| 権限変更時のクライアントキャッシュ破棄 | 該当なし | 本基盤は画面をサーバーで毎回生成し、権限情報をブラウザに保存しない |
+
+## Supabase Advisors（実プロジェクト）
+- ERROR：0件。
+- WARN「0029 authenticated_security_definer_function_executable」（29件）：**受容**（D-29）。公開 RPC は書き込みの唯一の経路として意図的に authenticated に公開し、各関数の冒頭で `require_active_user` / `require_admin`（MFA 含む）を DB で検証する。匿名（anon）は全関数で実行不可を確認済み。
