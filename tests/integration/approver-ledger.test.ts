@@ -32,9 +32,14 @@ describe.skipIf(!enabled)("決裁権者の指定・変更と非公開帳簿（�
   });
   afterAll(async()=>{await db?.$disconnect()});
 
-  it("決裁権者が未設定の間は、誰も非公開帳簿を閲覧できない（SUPER_ADMINも不可）",async()=>{
-    for(const k of ["admin","admin2","mgr","ap1","x"])expect(await acc.ledgerAccess(u[k].id,eventId)).toBe(false);
-    await expect(acc.assertLedgerAccess(u.admin.id,eventId)).rejects.toThrow("FORBIDDEN");
+  it("決裁権者が未設定でも、システム管理者・担当イベントの管理者は帳簿を扱える。それ以外のスタッフは不可",async()=>{
+    for(const k of ["admin","admin2","mgr"])expect(await acc.ledgerAccess(u[k],eventId)).toBe(true);
+    for(const k of ["ap1","x"])expect(await acc.ledgerAccess(u[k],eventId)).toBe(false);
+    await acc.assertLedgerAccess(u.admin,eventId);
+    await expect(acc.assertLedgerAccess(u.x,eventId)).rejects.toThrow("FORBIDDEN");
+    // 別のイベントを担当する管理者は、このイベントの帳簿を扱えない
+    const other=await db.user.create({data:{name:"他の管理者",email:`other-${randomUUID()}@example.com`,role:"EVENT_MANAGER"}});
+    expect(await acc.ledgerAccess(other,eventId)).toBe(false);
   });
   it("T42 初回の指定: SUPER_ADMINが申請し、新決裁権者の本人承諾で確定する。権限のない人は申請できない",async()=>{
     as("x");expect(await call(()=>act.requestApproverChange(eventId,form({newApproverId:u.ap1.id,reason:"権限のない申請"})))).toBe("forbidden");
@@ -46,22 +51,26 @@ describe.skipIf(!enabled)("決裁権者の指定・変更と非公開帳簿（�
     expect(await approvers()).toEqual([u.ap1.id]);
     expect(await db.auditLog.count({where:{action:"APPROVER_CHANGED",entityId:(await latest()).id}})).toBe(1);
   });
-  it("T40/T41 帳簿は指定された決裁権者だけが閲覧でき、SUPER_ADMIN・管理者・他のスタッフは画面データ・CSVとも拒否される",async()=>{
-    expect(await acc.ledgerAccess(u.ap1.id,eventId)).toBe(true);
-    for(const k of ["admin","admin2","mgr","x","ap2"]){expect(await acc.ledgerAccess(u[k].id,eventId)).toBe(false);as(k);const r=await csvRoute.GET(new Request(`http://localhost/api/ledger/csv?event=${eventId}`));expect(r.status).toBe(403)}
+  it("T40/T41 帳簿は決裁権者・システム管理者・担当イベントの管理者が閲覧でき、他のスタッフは画面データ・CSVとも拒否される",async()=>{
+    expect(await acc.ledgerAccess(u.ap1,eventId)).toBe(true);
+    for(const k of ["x","ap2"]){expect(await acc.ledgerAccess(u[k],eventId)).toBe(false);as(k);const r=await csvRoute.GET(new Request(`http://localhost/api/ledger/csv?event=${eventId}`));expect(r.status).toBe(403)}
+    for(const k of ["admin","admin2","mgr"]){expect(await acc.ledgerAccess(u[k],eventId)).toBe(true);as(k);const r=await csvRoute.GET(new Request(`http://localhost/api/ledger/csv?event=${eventId}`));expect(r.status).toBe(200)}
     as("ap1");const ok=await csvRoute.GET(new Request(`http://localhost/api/ledger/csv?event=${eventId}`));expect(ok.status).toBe(200);const text=await ok.text();expect(text).toContain("チケット売上");expect(text).toContain("会場費");
     expect((await csvRoute.GET(new Request("http://localhost/api/ledger/csv"))).status).toBe(403);
     const l=(await ledger.buildLedger(eventId))!;
     expect(l.tickets).toMatchObject({count:3,sales:20000,receivable:10000,paidCount:2});
     expect(l.expenses.total).toBe(4000);expect(l.balance).toBe(16000);
     expect(await db.auditLog.count({where:{action:"LEDGER_CSV_EXPORTED",actorId:u.ap1.id}})).toBe(1);
+    expect(await db.auditLog.count({where:{action:"LEDGER_CSV_EXPORTED",actorId:u.admin.id}})).toBe(1);
   });
-  it("決裁権者が指定されたイベントの収支・経費は、決裁権者以外(SUPER_ADMIN含む)の売上画面・経費管理・CSVから見えない",async()=>{
-    expect(await acc.financeVisible(u.admin.id,eventId)).toBe(false);expect(await acc.financeVisible(u.ap1.id,eventId)).toBe(true);
+  it("決裁権者が指定されたイベントの収支・経費は、決裁権者・システム管理者・担当イベントの管理者以外には、売上画面・経費管理・CSVから見えない",async()=>{
+    expect(await acc.financeVisible(u.admin,eventId)).toBe(true);expect(await acc.financeVisible(u.mgr,eventId)).toBe(true);expect(await acc.financeVisible(u.ap1,eventId)).toBe(true);expect(await acc.financeVisible(u.x,eventId)).toBe(false);
     const idsOf=async(viewer:string)=>(await sales.salesData(year,viewer)).events.map(e=>e.id);
-    expect(await idsOf(u.admin.id)).not.toContain(eventId);expect(await idsOf(u.ap1.id)).toContain(eventId);
-    as("admin");await expect(expActions.addExpense(eventId,form({label:"不正追加",amount:1}))).rejects.toThrow("FORBIDDEN");
-    await expect(expActions.deleteExpense(eventId,form({expenseId:(await db.eventExpense.findFirstOrThrow({where:{eventId}})).id}))).rejects.toThrow("FORBIDDEN");
+    expect(await idsOf(u.admin.id)).toContain(eventId);expect(await idsOf(u.ap1.id)).toContain(eventId);expect(await idsOf(u.x.id)).not.toContain(eventId);
+    // 非公開の対象外のスタッフは経費を追加・削除できない
+    const other=await db.user.create({data:{name:"他の管理者2",email:`other2-${randomUUID()}@example.com`,role:"EVENT_MANAGER"}});
+    expect(await acc.financeVisible(other,eventId)).toBe(false);
+    state.user={id:other.id,role:"EVENT_MANAGER",name:other.name} as typeof state.user;await expect(expActions.addExpense(eventId,form({label:"不正追加",amount:1}))).rejects.toThrow("FORBIDDEN");
     expect(await db.eventExpense.count({where:{eventId,label:"不正追加"}})).toBe(0);
   });
   it("T42 通常の交代: 現決裁権者の承認と新決裁権者の承諾の両方がそろって初めて切り替わる。自己昇格は禁止",async()=>{
@@ -78,7 +87,7 @@ describe.skipIf(!enabled)("決裁権者の指定・変更と非公開帳簿（�
     as("ap1");expect(await call(()=>act.confirmApproverChange(eventId,form({requestId:id})))).toBe("completed");
     expect(await approvers()).toEqual([u.ap2.id]);
     const old=await db.eventRoleAssignment.findFirstOrThrow({where:{eventId,userId:u.ap1.id,role:"APPROVER"}});expect(old.active).toBe(false);expect(old.revokedAt).not.toBeNull();
-    expect(await acc.ledgerAccess(u.ap1.id,eventId)).toBe(false);expect(await acc.ledgerAccess(u.ap2.id,eventId)).toBe(true);
+    expect(await acc.ledgerAccess(u.ap1,eventId)).toBe(false);expect(await acc.ledgerAccess(u.ap2,eventId)).toBe(true);
     as("ap1");expect((await csvRoute.GET(new Request(`http://localhost/api/ledger/csv?event=${eventId}`))).status).toBe(403);
   });
   it("旧決裁権者宛ての未完了の送金が残る間は交代できない（送金の照合後に交代できる）",async()=>{

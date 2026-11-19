@@ -7,15 +7,17 @@ export function summarizeBilling(billed:number,receiptAmounts:number[]){
   return {billed,received,unpaid,status};
 }
 export function custodyBalance(input:{received:number;remitted?:number;offsets?:number}){return input.received-(input.remitted??0)-(input.offsets??0)}
-export type FeeAdvanceStatus="OPEN"|"PARTIALLY_RECOVERED"|"RECOVERED"|"CANCELLED";
+export type FeeAdvanceStatus="PLANNED"|"OPEN"|"PARTIALLY_RECOVERED"|"RECOVERED"|"CANCELLED";
 export function feeAdvanceStatus(amount:number,recovered:number,cancelled=false):FeeAdvanceStatus{
   if(cancelled)return "CANCELLED";
   if(recovered<=0)return "OPEN";
   return recovered>=amount?"RECOVERED":"PARTIALLY_RECOVERED";
 }
-export type ExpenseAdvanceStatus="REQUESTED"|"REVIEWING"|"APPROVED"|"PARTIALLY_SETTLED"|"SETTLED"|"RETURNED"|"CANCELLED";
-export const expenseStatusLabel:Record<ExpenseAdvanceStatus,string>={REQUESTED:"申請中",REVIEWING:"確認中",APPROVED:"承認済み",PARTIALLY_SETTLED:"一部精算済み",SETTLED:"精算済み",RETURNED:"差戻し",CANCELLED:"取消"};
+export type ExpenseAdvanceStatus="PLANNED"|"REQUESTED"|"REVIEWING"|"APPROVED"|"PARTIALLY_SETTLED"|"SETTLED"|"RETURNED"|"CANCELLED";
+export const expenseStatusLabel:Record<ExpenseAdvanceStatus,string>={PLANNED:"立替予定",REQUESTED:"申請中",REVIEWING:"確認中",APPROVED:"承認済み",PARTIALLY_SETTLED:"一部精算済み",SETTLED:"精算済み",RETURNED:"差戻し",CANCELLED:"取消"};
 const transitions:Record<ExpenseAdvanceStatus,readonly ExpenseAdvanceStatus[]>={
+  // 立替予定: まだ立て替えていない。実行したら「申請中」へ進める(決裁権者の確認・承認の対象にはならない)
+  PLANNED:["REQUESTED","CANCELLED"],
   REQUESTED:["REVIEWING","APPROVED","RETURNED","CANCELLED"],
   REVIEWING:["APPROVED","RETURNED","CANCELLED"],
   APPROVED:["PARTIALLY_SETTLED","SETTLED"],

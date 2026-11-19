@@ -1,6 +1,7 @@
 import {db} from "@/server/db";
+import {exitReasonLabel} from "@/features/checkins/exit-domain";
 import {decideAccess} from "@/features/collection/domain";
-import {canViewLedger} from "@/features/ledger/access";
+import {canManageLedger} from "@/features/ledger/access";
 import {buildLedger} from "@/features/ledger/data";
 import {attendanceStats,ticketStats,type ReportKind,type ReportRights,type Snapshot} from "./domain";
 
@@ -10,7 +11,7 @@ export async function loadReportRights(user:{id:string;role:string},eventId:stri
   const assignments=await db.eventRoleAssignment.findMany({where:{eventId},select:{userId:true,role:true,active:true}});
   const access=decideAccess({role:user.role,userId:user.id,managerId:event.managerId,assignments});
   const reporter=assignments.some(a=>a.active&&a.role==="REPORTER"&&a.userId===user.id);
-  return {event,rights:{manager:access.manager,collector:access.collector,approver:access.approver,reporter,ledger:canViewLedger(user.id,assignments)}};
+  return {event,rights:{manager:access.manager,collector:access.collector,approver:access.approver,reporter,ledger:canManageLedger({role:user.role,userId:user.id,managerId:event.managerId,assignments})}};
 }
 
 const jst=(d:Date)=>d.toISOString();
@@ -24,7 +25,7 @@ export async function buildSnapshot(eventId:string,kind:ReportKind,ctx:{reporter
     const tickets=await db.ticket.findMany({where:{eventId,...(own?{collectorId:ctx.reporterId}:{})},include:{order:{select:{buyerParticipantId:true}},payments:{orderBy:{createdAt:"desc"},take:1,select:{amount:true}}}});
     const refunds=await db.payment.aggregate({where:{ticket:{eventId,...(own?{collectorId:ctx.reporterId}:{})},status:"REFUNDED"},_sum:{amount:true}});
     snap.tickets=ticketStats(event.price,tickets.map(t=>({status:t.status,paymentStatus:t.paymentStatus,amount:t.payments[0]?.amount??event.price,buyerKey:t.order?.buyerParticipantId??t.participantId})),refunds._sum.amount??0);
-    const fee=await db.feeAdvance.findMany({where:{eventId,status:{not:"CANCELLED"},...(own?{createdBy:ctx.reporterId}:{})},include:{recoveries:true},orderBy:{advancedAt:"asc"}});
+    const fee=await db.feeAdvance.findMany({where:{eventId,status:{notIn:["CANCELLED","PLANNED"]},...(own?{createdBy:ctx.reporterId}:{})},include:{recoveries:true},orderBy:{advancedAt:"asc"}});
     const ticketNos=new Map<string,string>();const orderNos=new Map<string,string[]>();
     const ids=fee.flatMap(f=>f.ticketId?[f.ticketId]:[]),orderIds=fee.flatMap(f=>f.orderId?[f.orderId]:[]);
     if(ids.length||orderIds.length)for(const t of await db.ticket.findMany({where:{OR:[{id:{in:ids}},{orderId:{in:orderIds}}]},select:{id:true,orderId:true,ticketNumber:true}})){ticketNos.set(t.id,t.ticketNumber);if(t.orderId)orderNos.set(t.orderId,[...(orderNos.get(t.orderId)??[]),t.ticketNumber])}
@@ -33,10 +34,10 @@ export async function buildSnapshot(eventId:string,kind:ReportKind,ctx:{reporter
     snap.expenseAdvances=exp.map(e=>{const settled=e.settlements.reduce((n,s)=>n+s.amount,0);return {advancer:e.advancerName,category:e.category,payee:e.payee,amount:e.amount,paidAt:jst(e.paidAt),settled,unsettled:e.amount-settled,status:e.status}});
   }
   if(kind==="PARTICIPANT"||kind==="INTEGRATED"){
-    const regs=await db.eventRegistration.findMany({where:{eventId,attendanceStatus:{not:"CANCELLED"},ticketId:{not:null}},include:{participant:{select:{name:true}},ticket:{include:{checkin:{include:{operator:{select:{name:true}}}}}}},orderBy:{participant:{nameKana:"asc"}}});
+    const regs=await db.eventRegistration.findMany({where:{eventId,attendanceStatus:{not:"CANCELLED"},ticketId:{not:null}},include:{participant:{select:{name:true}},ticket:{include:{checkin:{include:{operator:{select:{name:true}}}},checkouts:{orderBy:{checkedOutAt:"desc"},take:1}}}},orderBy:{participant:{nameKana:"asc"}}});
     const live=regs.filter(r=>r.ticket&&r.ticket.status!=="CANCELLED"&&r.ticket.status!=="EXPIRED");
     const rows=live.map(r=>{const c=r.ticket!.checkin;return {checkedIn:Boolean(c),walkIn:r.attendanceStatus==="WALK_IN"||c?.checkinType==="WALK_IN"}});
-    snap.participants={...attendanceStats(rows,event.endTime<=now),roster:live.map(r=>{const c=r.ticket!.checkin;return {name:r.participant.name,ticketNumber:r.ticket!.ticketNumber,checkedInAt:c?jst(c.checkedInAt):null,method:c?.checkinType??null,operator:c?.operator.name??null,walkIn:r.attendanceStatus==="WALK_IN"||c?.checkinType==="WALK_IN"}}).sort((a,b)=>(a.checkedInAt??"9").localeCompare(b.checkedInAt??"9"))};
+    snap.participants={...attendanceStats(rows,event.endTime<=now),roster:live.map(r=>{const c=r.ticket!.checkin;const x=r.ticket!.checkouts[0];return {name:r.participant.name,ticketNumber:r.ticket!.ticketNumber,exitedAt:x?jst(x.checkedOutAt):null,exitReason:x?exitReasonLabel(x.reasonCode)+(x.reasonNote?`（${x.reasonNote}）`:""):null,returnedAt:x?.returnedAt?jst(x.returnedAt):null,checkedInAt:c?jst(c.checkedInAt):null,method:c?.checkinType??null,operator:c?.operator.name??null,walkIn:r.attendanceStatus==="WALK_IN"||c?.checkinType==="WALK_IN"}}).sort((a,b)=>(a.checkedInAt??"9").localeCompare(b.checkedInAt??"9"))};
   }
   if(kind==="INTEGRATED"&&ctx.rights.ledger){
     const l=await buildLedger(eventId);

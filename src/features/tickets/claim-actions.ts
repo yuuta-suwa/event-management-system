@@ -3,6 +3,7 @@ import {redirect} from "next/navigation";
 import {z} from "zod";
 import {db} from "@/server/db";
 import {isLocalDemo} from "@/server/authz";
+import {retryTransient} from "@/server/transient";
 import {queueParticipantNotification} from "@/features/notifications/service";
 import {kickEmailDelivery,queueTicketEmail} from "@/features/email/service";
 import {issueRegistrationToken} from "@/features/participants/registration-token";
@@ -24,7 +25,7 @@ export async function claimTicket(_:ClaimState,formData:FormData):Promise<ClaimS
   if(!link.ok)return {message:link.reason==="expired"?"リンクの有効期限が切れています。渡す方に新しいリンクの発行を依頼してください。":"リンクが無効です。"};
   let myToken:string;
   try{
-    myToken=await db.$transaction(async tx=>{
+    myToken=await retryTransient(()=>db.$transaction(async tx=>{
       const ticket=await tx.ticket.findUnique({where:{id:link.ticketId},include:{event:true,checkin:true,order:true}});
       if(!ticket)throw new Error("INVALID_TICKET");
       if(ticket.shareVersion!==link.shareVersion)throw new Error(ticket.claimed&&link.legacy?"ALREADY_CLAIMED":"LINK_REVOKED");
@@ -53,7 +54,7 @@ export async function claimTicket(_:ClaimState,formData:FormData):Promise<ClaimS
       await queueTicketEmail(tx,{kind:"TRANSFER_RECEIVED",ticketId:ticket.id});
       await tx.auditLog.create({data:{action:transfer?"TICKET_TRANSFERRED_BY_HOLDER":"TICKET_CLAIMED",entityType:"TicketTransfer",entityId:record.id,before:{participantId:fromParticipantId,qrTokenVersion:ticket.qrTokenVersion},after:{participantId:participant.id,qrTokenVersion:version,ticketNumber:ticket.ticketNumber,orderId:ticket.orderId,paymentStatus:ticket.paymentStatus}}});
       return issueRegistrationToken(registrationId,secret);
-    });
+    }));
   }catch(error){
     const code=error instanceof Error?error.message:"UNKNOWN";
     if(code==="ALREADY_CLAIMED")return {message:"このチケットはすでに受け取り済みです。"};
@@ -61,7 +62,8 @@ export async function claimTicket(_:ClaimState,formData:FormData):Promise<ClaimS
     if(code==="SAME_HOLDER")return {message:"現在の保有者と同じ方には譲渡できません。"};
     if(code==="ALREADY_REGISTERED")return {message:"このメールアドレス・電話番号はすでに登録されています。別の連絡先を入力してください。"};
     if(code==="TICKET_UNAVAILABLE"||code==="INVALID_TICKET")return {message:"このチケットは現在受け取れません。"};
-    throw error;
+    console.error("[claimTicket]",error);
+    return {message:"受け取り処理を完了できませんでした。通信が混み合っている可能性があります。入力内容は残っているので、もう一度「受け取る」を押してください。"};
   }
   kickEmailDelivery();
   redirect(`/my/${myToken}?notice=claimed`);

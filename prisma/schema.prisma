@@ -107,6 +107,7 @@ model User {
   eventAssignments    EventStaff[]
   confirmedPayments   Payment[]             @relation("PaymentConfirmer")
   performedCheckins   Checkin[]             @relation("CheckinStaff")
+  performedCheckouts  Checkout[]            @relation("CheckoutStaff")
   transfers           TicketTransfer[]      @relation("TransferOperator")
   auditLogs           AuditLog[]            @relation("AuditActor")
   adminNotificationPref AdminNotificationPref?
@@ -151,6 +152,7 @@ model Participant {
   tickets             Ticket[]
   ticketOrders        TicketOrder[]
   checkins            Checkin[]
+  checkouts           Checkout[]
   notifications       NotificationLog[]
   incomingTransfers   TicketTransfer[]    @relation("NewParticipant")
   outgoingTransfers   TicketTransfer[]    @relation("OldParticipant")
@@ -213,6 +215,7 @@ model Event {
   registrations                  EventRegistration[]
   tickets                        Ticket[]
   checkins                       Checkin[]
+  checkouts                      Checkout[]
   notificationJobs               NotificationJob[]
   notificationLogs               NotificationLog[]
   expenses                       EventExpense[]
@@ -342,6 +345,7 @@ model Ticket {
   registration          EventRegistration?
   payments              Payment[]
   checkin               Checkin?
+  checkouts             Checkout[]
   transfers             TicketTransfer[]
 
   @@unique([eventId, receptionCode])
@@ -385,6 +389,30 @@ model Checkin {
   operator      User        @relation("CheckinStaff", fields: [checkedInBy], references: [id])
 
   @@index([eventId, checkedInAt])
+}
+
+/// 退出の履歴。受付(Checkin)済みの参加者が会場を出たときに、QR・受付コード・参加者検索で記録する。
+/// 理由(reasonCode + reasonNote)を残せる。再入場したら returnedAt を記録する(同じ行に残す)。
+model Checkout {
+  id            String      @id @default(cuid())
+  eventId       String
+  ticketId      String
+  participantId String
+  checkedOutAt  DateTime    @default(now())
+  checkedOutBy  String
+  checkoutType  CheckinType
+  reasonCode    String      @default("LEAVE")
+  reasonNote    String?
+  returnedAt    DateTime?
+  returnedBy    String?
+  createdAt     DateTime    @default(now())
+  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticket        Ticket      @relation(fields: [ticketId], references: [id])
+  participant   Participant @relation(fields: [participantId], references: [id])
+  operator      User        @relation("CheckoutStaff", fields: [checkedOutBy], references: [id])
+
+  @@index([eventId, checkedOutAt])
+  @@index([ticketId, checkedOutAt])
 }
 
 model TicketTransfer {

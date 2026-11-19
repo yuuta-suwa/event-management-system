@@ -27,7 +27,8 @@ const day=z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const jst=(d:string)=>new Date(`${d}T00:00:00+09:00`);
 const method=z.enum(["CASH","BANK_TRANSFER","ONLINE","OTHER"]);
 
-const feeSchema=z.object({obligorName:z.string().trim().min(1).max(120),advancerName:z.string().trim().min(1).max(120),target:z.string().optional(),amount:z.coerce.number().int().min(1).max(10_000_000),advancedAt:day,method,evidenceNote:z.string().trim().max(300).optional()});
+const planned=z.preprocess(v=>v==="on"||v==="true"||v==="1",z.boolean());
+const feeSchema=z.object({planned:planned.optional(),obligorName:z.string().trim().min(1).max(120),advancerName:z.string().trim().min(1).max(120),target:z.string().optional(),amount:z.coerce.number().int().min(1).max(10_000_000),advancedAt:day,method,evidenceNote:z.string().trim().max(300).optional()});
 export async function recordFeeAdvance(eventId:string,formData:FormData){
   const {user,access}=await context(eventId);
   if(!access.manager&&!access.collector)throw new Error("FORBIDDEN");
@@ -45,11 +46,32 @@ export async function recordFeeAdvance(eventId:string,formData:FormData){
         orderId=t.kind==="order"?t.id:null;ticketId=t.kind==="ticket"?t.id:null;
         obligorParticipantId=t.tickets[0]?.participantId??null;
       }
-      const advance=await tx.feeAdvance.create({data:{eventId,obligorName:i.obligorName,obligorParticipantId,advancerName:i.advancerName,orderId,ticketId,amount:i.amount,advancedAt:jst(i.advancedAt),method:i.method,evidenceNote:i.evidenceNote||null,createdBy:user.id}});
-      await tx.auditLog.create({data:{actorId:user.id,action:"FEE_ADVANCE_RECORDED",entityType:"FeeAdvance",entityId:advance.id,after:{amount:i.amount,advancerName:i.advancerName,obligorName:i.obligorName,orderId,ticketId}}});
+      const advance=await tx.feeAdvance.create({data:{status:i.planned?"PLANNED":"OPEN",eventId,obligorName:i.obligorName,obligorParticipantId,advancerName:i.advancerName,orderId,ticketId,amount:i.amount,advancedAt:jst(i.advancedAt),method:i.method,evidenceNote:i.evidenceNote||null,createdBy:user.id}});
+      await tx.auditLog.create({data:{actorId:user.id,action:i.planned?"FEE_ADVANCE_PLANNED":"FEE_ADVANCE_RECORDED",entityType:"FeeAdvance",entityId:advance.id,after:{planned:Boolean(i.planned),amount:i.amount,advancerName:i.advancerName,obligorName:i.obligorName,orderId,ticketId}}});
     });
   }catch(error){code=errorCode(error)}
-  return back(eventId,code==="fee_saved"?"notice":"error",code);
+  return back(eventId,code==="fee_saved"?"notice":"error",code==="fee_saved"&&i.planned?"fee_planned":code);
+}
+const confirmFeeSchema=z.object({feeAdvanceId:z.string().min(1),advancedAt:day});
+/** 立替予定を、実際に立て替えた記録へ進める(立替日を確定する)。 */
+export async function confirmFeeAdvance(eventId:string,formData:FormData){
+  const {user,access}=await context(eventId);
+  if(!access.manager&&!access.collector)throw new Error("FORBIDDEN");
+  const parsed=confirmFeeSchema.safeParse(Object.fromEntries(formData));
+  if(!parsed.success)return back(eventId,"error","invalid");
+  if(isLocalDemo())return back(eventId,"notice","demo");
+  let code="fee_confirmed";
+  try{
+    await db.$transaction(async tx=>{
+      const advance=await tx.feeAdvance.findFirst({where:{id:parsed.data.feeAdvanceId,eventId}});
+      if(!advance)throw new Error("NOT_FOUND");
+      if(!(access.manager||advance.createdBy===user.id))throw new Error("FORBIDDEN");
+      const moved=await tx.feeAdvance.updateMany({where:{id:advance.id,status:"PLANNED"},data:{status:"OPEN",advancedAt:jst(parsed.data.advancedAt)}});
+      if(moved.count!==1)throw new Error("INVALID_TRANSITION");
+      await tx.auditLog.create({data:{actorId:user.id,action:"FEE_ADVANCE_CONFIRMED",entityType:"FeeAdvance",entityId:advance.id,before:{status:"PLANNED"},after:{status:"OPEN",advancedAt:parsed.data.advancedAt,amount:advance.amount}}});
+    },serializable);
+  }catch(error){code=errorCode(error)}
+  return back(eventId,code==="fee_confirmed"?"notice":"error",code);
 }
 const recoverySchema=z.object({feeAdvanceId:z.string().min(1),amount:z.coerce.number().int().min(1).max(10_000_000),recoveredAt:day,method,note:z.string().trim().max(300).optional()});
 export async function recordFeeRecovery(eventId:string,formData:FormData){
@@ -63,7 +85,7 @@ export async function recordFeeRecovery(eventId:string,formData:FormData){
     await db.$transaction(async tx=>{
       const advance=await tx.feeAdvance.findFirst({where:{id:i.feeAdvanceId,eventId},include:{recoveries:true}});
       if(!advance)throw new Error("NOT_FOUND");
-      if(advance.status==="CANCELLED"||advance.status==="RECOVERED")throw new Error("INVALID_TRANSITION");
+      if(advance.status==="CANCELLED"||advance.status==="RECOVERED"||advance.status==="PLANNED")throw new Error("INVALID_TRANSITION");
       const recovered=advance.recoveries.reduce((n,r)=>n+r.amount,0);
       if(i.amount>advance.amount-recovered)throw new Error("EXCEEDS_BALANCE");
       const recovery=await tx.feeAdvanceRecovery.create({data:{feeAdvanceId:advance.id,amount:i.amount,recoveredAt:jst(i.recoveredAt),method:i.method,note:i.note||null,createdBy:user.id}});
@@ -93,7 +115,7 @@ export async function cancelFeeAdvance(eventId:string,formData:FormData){
   return back(eventId,code==="fee_cancelled"?"notice":"error",code);
 }
 
-const expenseSchema=z.object({advancerName:z.string().trim().min(1).max(120),category:z.string().trim().min(1).max(60),payee:z.string().trim().min(1).max(120),amount:z.coerce.number().int().min(1).max(100_000_000),paidAt:day,evidenceNote:z.string().trim().max(300).optional()});
+const expenseSchema=z.object({planned:planned.optional(),advancerName:z.string().trim().min(1).max(120),category:z.string().trim().min(1).max(60),payee:z.string().trim().min(1).max(120),amount:z.coerce.number().int().min(1).max(100_000_000),paidAt:day,evidenceNote:z.string().trim().max(300).optional()});
 export async function requestExpenseAdvance(eventId:string,formData:FormData){
   const {user,access}=await context(eventId);
   if(!access.manager&&!access.collector)throw new Error("FORBIDDEN");
@@ -102,10 +124,31 @@ export async function requestExpenseAdvance(eventId:string,formData:FormData){
   if(isLocalDemo())return back(eventId,"notice","demo");
   const i=parsed.data;
   await db.$transaction(async tx=>{
-    const advance=await tx.expenseAdvance.create({data:{eventId,advancerName:i.advancerName,category:i.category,payee:i.payee,amount:i.amount,paidAt:jst(i.paidAt),evidenceNote:i.evidenceNote||null,requestedBy:user.id}});
-    await tx.auditLog.create({data:{actorId:user.id,action:"EXPENSE_ADVANCE_REQUESTED",entityType:"ExpenseAdvance",entityId:advance.id,after:{amount:i.amount,category:i.category,payee:i.payee,advancerName:i.advancerName}}});
+    const advance=await tx.expenseAdvance.create({data:{status:i.planned?"PLANNED":"REQUESTED",eventId,advancerName:i.advancerName,category:i.category,payee:i.payee,amount:i.amount,paidAt:jst(i.paidAt),evidenceNote:i.evidenceNote||null,requestedBy:user.id}});
+    await tx.auditLog.create({data:{actorId:user.id,action:i.planned?"EXPENSE_ADVANCE_PLANNED":"EXPENSE_ADVANCE_REQUESTED",entityType:"ExpenseAdvance",entityId:advance.id,after:{planned:Boolean(i.planned),amount:i.amount,category:i.category,payee:i.payee,advancerName:i.advancerName}}});
   });
-  return back(eventId,"notice","expense_requested");
+  return back(eventId,"notice",i.planned?"expense_planned":"expense_requested");
+}
+const confirmExpenseSchema=z.object({id:z.string().min(1),paidAt:day});
+/** 経費の立替予定を、実際に立て替えた記録として申請する(支払日を確定し、決裁権者の確認の対象にする)。 */
+export async function confirmExpenseAdvance(eventId:string,formData:FormData){
+  const {user,access}=await context(eventId);
+  const parsed=confirmExpenseSchema.safeParse(Object.fromEntries(formData));
+  if(!parsed.success)return back(eventId,"error","invalid");
+  if(isLocalDemo())return back(eventId,"notice","demo");
+  let code="expense_confirmed";
+  try{
+    await db.$transaction(async tx=>{
+      const advance=await tx.expenseAdvance.findFirst({where:{id:parsed.data.id,eventId}});
+      if(!advance)throw new Error("NOT_FOUND");
+      if(!(access.manager||advance.requestedBy===user.id))throw new Error("FORBIDDEN");
+      if(!canTransitionExpense(advance.status as ExpenseAdvanceStatus,"REQUESTED")||advance.status!=="PLANNED")throw new Error("INVALID_TRANSITION");
+      const moved=await tx.expenseAdvance.updateMany({where:{id:advance.id,status:"PLANNED"},data:{status:"REQUESTED",paidAt:jst(parsed.data.paidAt)}});
+      if(moved.count!==1)throw new Error("INVALID_TRANSITION");
+      await tx.auditLog.create({data:{actorId:user.id,action:"EXPENSE_ADVANCE_CONFIRMED",entityType:"ExpenseAdvance",entityId:advance.id,before:{status:"PLANNED"},after:{status:"REQUESTED",paidAt:parsed.data.paidAt,amount:advance.amount}}});
+    },serializable);
+  }catch(error){code=errorCode(error)}
+  return back(eventId,code==="expense_confirmed"?"notice":"error",code);
 }
 const decisionSchema=z.object({id:z.string().min(1),decision:z.enum(["review","approve","return"]),reason:z.string().trim().max(300).optional()});
 export async function decideExpenseAdvance(eventId:string,formData:FormData){

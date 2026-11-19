@@ -11,7 +11,7 @@ import {CODE_FAILURE_LIMIT,normalizeReceptionCode,recentCodeFailures,recordCodeF
 export type UnpaidResolution="ONSITE_PAYMENT"|"REJECT"|"ADMIN_CONFIRMATION";
 export type CheckinMethod="QR"|"RECEPTION_CODE"|"NAME_SEARCH";
 export type Verification="SELF_DECLARED"|"ID_DOCUMENT"|"PHONE_LAST4";
-export type CheckinResult={kind:"OK"|"ALREADY_CHECKED_IN"|"UNPAID"|"REJECTED"|"NEEDS_ADMIN"|"INVALID"|"WRONG_EVENT"|"FORBIDDEN"|"LOCKED"|"VERIFY_REQUIRED";participantName?:string;eventName?:string;ticketNumber?:string;checkedInAt?:string;checkedInBy?:string;ticketId?:string;message:string};
+export type CheckinResult={kind:"OK"|"ALREADY_CHECKED_IN"|"UNPAID"|"REJECTED"|"NEEDS_ADMIN"|"INVALID"|"WRONG_EVENT"|"FORBIDDEN"|"LOCKED"|"VERIFY_REQUIRED"|"EXIT_OK"|"ALREADY_EXITED"|"NOT_CHECKED_IN"|"REENTER_OK";participantName?:string;eventName?:string;ticketNumber?:string;checkedInAt?:string;checkedInBy?:string;ticketId?:string;message:string;checkoutId?:string;exitedAt?:string;exitedBy?:string;exitReasonCode?:string;exitReason?:string;exitNote?:string|null};
 export type Operator={id:string;name:string;role:UserRole};
 const demoState=globalThis as unknown as{demoCheckins?:Map<string,{at:string;by:string}>};demoState.demoCheckins??=new Map();
 
@@ -87,18 +87,18 @@ export async function processCheckinByCode(input:{eventId:string;code:string;ope
 }
 
 export function maskEmail(email:string){const [local,domain]=email.split("@");return domain?`${local.slice(0,2)}***@${domain}`:"***"}
-export type Candidate={ticketId:string;ticketNumber:string;name:string;nameKana:string;emailMasked:string;purchaser:string|null;paymentStatus:string;checkedInAt:string|null;sameNameCount:number};
+export type Candidate={ticketId:string;ticketNumber:string;name:string;nameKana:string;emailMasked:string;purchaser:string|null;paymentStatus:string;checkedInAt:string|null;exitedAt?:string|null;sameNameCount:number};
 /** ③ 参加者検索: 氏名・かな・チケット番号で候補を返す。同姓同名は sameNameCount>1 で区別できるようにする。 */
 export async function searchCheckinCandidates(input:{eventId:string;query:string;operator:Operator;limit?:number}):Promise<Candidate[]|"FORBIDDEN">{
   const q=input.query.trim().normalize("NFKC");
   if(q.length<1)return [];
   const event=await db.event.findUnique({where:{id:input.eventId},select:{managerId:true,staff:{select:{userId:true}}}});
   if(!event||!canAccessEvent({role:input.operator.role,userId:input.operator.id,managerId:event.managerId,assignedUserIds:event.staff.map(s=>s.userId)}))return "FORBIDDEN";
-  const rows=await db.ticket.findMany({where:{eventId:input.eventId,status:{not:"CANCELLED"},OR:[{ticketNumber:{contains:q,mode:"insensitive"}},{participant:{name:{contains:q,mode:"insensitive"}}},{participant:{nameKana:{contains:q,mode:"insensitive"}}}]},include:{participant:true,checkin:true,order:{include:{buyer:true}}},orderBy:[{participant:{nameKana:"asc"}},{ticketNumber:"asc"}],take:input.limit??20});
+  const rows=await db.ticket.findMany({where:{eventId:input.eventId,status:{not:"CANCELLED"},OR:[{ticketNumber:{contains:q,mode:"insensitive"}},{participant:{name:{contains:q,mode:"insensitive"}}},{participant:{nameKana:{contains:q,mode:"insensitive"}}}]},include:{participant:true,checkin:true,checkouts:{where:{returnedAt:null},take:1,select:{checkedOutAt:true}},order:{include:{buyer:true}}},orderBy:[{participant:{nameKana:"asc"}},{ticketNumber:"asc"}],take:input.limit??20});
   const sameNamed=await db.participant.findMany({where:{name:{in:[...new Set(rows.map(r=>r.participant.name))]},tickets:{some:{eventId:input.eventId,status:{not:"CANCELLED"}}}},select:{id:true,name:true}});
   const sameName=new Map<string,number>();
   for(const p of sameNamed)sameName.set(p.name,(sameName.get(p.name)??0)+1);
-  return rows.map(r=>({ticketId:r.id,ticketNumber:r.ticketNumber,name:r.participant.name,nameKana:r.participant.nameKana,emailMasked:maskEmail(r.participant.email),purchaser:r.order?.buyer?.name??null,paymentStatus:r.paymentStatus,checkedInAt:r.checkin?.checkedInAt.toISOString()??null,sameNameCount:sameName.get(r.participant.name)??1}));
+  return rows.map(r=>({ticketId:r.id,ticketNumber:r.ticketNumber,name:r.participant.name,nameKana:r.participant.nameKana,emailMasked:maskEmail(r.participant.email),purchaser:r.order?.buyer?.name??null,paymentStatus:r.paymentStatus,checkedInAt:r.checkin?.checkedInAt.toISOString()??null,exitedAt:r.checkouts[0]?.checkedOutAt.toISOString()??null,sameNameCount:sameName.get(r.participant.name)??1}));
 }
 
 /** ③ 参加者検索での受付確定。同姓同名の候補が複数いる場合は「申告のみ」を認めず、電話番号下4桁か身分証での確認を必須にする。 */

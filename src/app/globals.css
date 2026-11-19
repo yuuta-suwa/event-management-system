@@ -96,3 +96,13 @@ body{font-family:"Hiragino Sans","Yu Gothic UI","Yu Gothic",system-ui,sans-serif
 .collection-section .data-table td strong+small{display:block;margin-top:2px;color:var(--muted);font-size:11px}
 .collection-section .data-table td .inline-form{flex-wrap:nowrap}
 .collection-section .data-table td .inline-form button{white-space:nowrap}
+
+/* 退出の記録(受付画面の「退出」タブ・退出履歴) */
+.result-exit_ok,.result-reenter_ok{background:#e3eefb;border-color:#a6c3e8;color:#1c4a85}
+.result-already_exited,.result-not_checked_in{background:#fff1d6;border-color:#e5c47c;color:#79500c}
+.exit-reason-box{display:grid;gap:8px;margin:0 0 12px;padding:12px 14px;border-radius:12px;background:#0b1716;color:#d5e2e0;font-size:12px}.exit-reason-box label{display:grid;gap:4px;color:#b9cbca;font-size:11px;font-weight:700}.exit-reason-box select,.exit-reason-box input{height:42px;padding:0 10px;border:1px solid #ffffff2e;border-radius:8px;background:#fff;color:var(--ink);font-size:14px}.exit-reason-box small{color:#9fb5b2;font-size:10px;line-height:1.5}
+.exit-edit{display:grid;gap:6px;width:100%;max-width:360px;margin-top:12px;text-align:left;font-size:12px}.exit-edit select,.exit-edit input{height:38px;padding:0 8px;border:1px solid #a6c3e8;border-radius:8px;background:#fff;color:var(--ink)}.exit-edit button{height:38px;border:0;border-radius:8px;background:#1c4a85;color:#fff;font-weight:800}
+.exit-history{margin-top:22px}.exit-history table{width:100%;border-collapse:collapse;font-size:12px}.exit-history th,.exit-history td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.exit-history th{color:var(--muted);font-size:11px}.exit-history .exit-return{color:#175f34;font-weight:800}
+.field-error{color:#b42318;font-size:12px;font-weight:700}
+.ticket-issue-form{display:grid;gap:5px;min-width:130px}.ticket-issue-form select{height:32px;padding:0 6px;border:1px solid var(--line);border-radius:8px;font-size:12px}.ticket-issue-form button{height:32px;border:0;border-radius:8px;background:var(--teal);color:#fff;font-size:12px;font-weight:800}
+.planned-check{display:flex!important;align-items:center;gap:8px;grid-column:1/-1;font-weight:700}.planned-check input{width:auto}

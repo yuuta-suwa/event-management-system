@@ -10,7 +10,7 @@ export async function addExpense(eventId:string,formData:FormData){
   const parsed=addSchema.safeParse(Object.fromEntries(formData));
   if(!parsed.success)throw new Error("INVALID_INPUT");
   if(isLocalDemo())redirect(`/events/${eventId}/expenses?notice=demo`);
-  if(!await financeVisible(actor.id,eventId))throw new Error("FORBIDDEN");
+  if(!await financeVisible(actor,eventId))throw new Error("FORBIDDEN");
   await db.$transaction(async tx=>{
     const expense=await tx.eventExpense.create({data:{eventId,label:parsed.data.label,amount:parsed.data.amount,note:parsed.data.note||null}});
     await tx.auditLog.create({data:{actorId:actor.id,action:"EVENT_EXPENSE_ADDED",entityType:"EventExpense",entityId:expense.id,after:expense}});
@@ -23,7 +23,7 @@ export async function deleteExpense(eventId:string,formData:FormData){
   const parsed=deleteSchema.safeParse(Object.fromEntries(formData));
   if(!parsed.success)throw new Error("INVALID_INPUT");
   if(isLocalDemo())redirect(`/events/${eventId}/expenses?notice=demo`);
-  if(!isLocalDemo()&&!await financeVisible(actor.id,eventId))throw new Error("FORBIDDEN");
+  if(!isLocalDemo()&&!await financeVisible(actor,eventId))throw new Error("FORBIDDEN");
   const existing=await db.eventExpense.findUnique({where:{id:parsed.data.expenseId}});
   if(!existing||existing.eventId!==eventId)throw new Error("NOT_FOUND");
   await db.$transaction(async tx=>{

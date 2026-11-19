@@ -52,7 +52,7 @@ export type Snapshot={
   tickets?:ReturnType<typeof ticketStats>;
   feeAdvances?:{obligor:string;advancer:string;amount:number;tickets:string;advancedAt:string;recovered:number;outstanding:number;status:string}[];
   expenseAdvances?:{advancer:string;category:string;payee:string;amount:number;paidAt:string;settled:number;unsettled:number;status:string}[];
-  participants?:ReturnType<typeof attendanceStats>&{roster:{name:string;ticketNumber:string;checkedInAt:string|null;method:string|null;operator:string|null;walkIn:boolean}[]};
+  participants?:ReturnType<typeof attendanceStats>&{roster:{name:string;ticketNumber:string;checkedInAt:string|null;method:string|null;operator:string|null;walkIn:boolean;exitedAt?:string|null;exitReason?:string|null;returnedAt?:string|null}[]};
   ledger?:{custodyBalance:number;storePaid:number;storeUnpaid:number;expenses:number;balance:number};
 };
 const yen=(n:number)=>`${n.toLocaleString("ja-JP")}円`;

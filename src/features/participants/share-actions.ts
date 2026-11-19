@@ -7,6 +7,7 @@ import {verifyRegistrationToken} from "./registration-token";
 import {issueShareToken,shareExpiry} from "@/features/tickets/share-token";
 import {qrTokenSecret} from "@/features/tickets/token";
 import {canShareTicket} from "@/features/transfers/domain";
+import {retryTransient} from "@/server/transient";
 export type ShareState={url?:string;expires?:string;message?:string};
 const schema=z.object({token:z.string().min(1),ticketId:z.string().min(1)});
 async function authorize(raw:FormData){
@@ -24,6 +25,10 @@ async function authorize(raw:FormData){
   return {ticket,registration,token:parsed.data.token} as const;
 }
 export async function issueShareLink(_:ShareState,formData:FormData):Promise<ShareState>{
+  try{return await retryTransient(()=>issueShareLinkOnce(formData))}
+  catch(error){console.error("[issueShareLink]",error);return {message:"リンクを発行できませんでした。通信が混み合っている可能性があります。もう一度お試しください。"}}
+}
+async function issueShareLinkOnce(formData:FormData):Promise<ShareState>{
   if(isLocalDemo())return {message:"ローカルデモでは発行できません。"};
   const auth=await authorize(formData);
   if("error" in auth)return {message:auth.error};
@@ -34,6 +39,10 @@ export async function issueShareLink(_:ShareState,formData:FormData):Promise<Sha
   return {url:`${origin}/claim/${link}`,expires:new Date(expiresAt*1000).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})};
 }
 export async function revokeShareLinks(_:ShareState,formData:FormData):Promise<ShareState>{
+  try{return await retryTransient(()=>revokeShareLinksOnce(formData))}
+  catch(error){console.error("[revokeShareLinks]",error);return {message:"リンクを取り消せませんでした。もう一度お試しください。"}}
+}
+async function revokeShareLinksOnce(formData:FormData):Promise<ShareState>{
   if(isLocalDemo())return {message:"ローカルデモでは取り消せません。"};
   const auth=await authorize(formData);
   if("error" in auth)return {message:auth.error};

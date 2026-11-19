@@ -4,7 +4,8 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import type {IScannerControls} from "@zxing/browser";
 import {Camera,Keyboard} from "lucide-react";
-import {feedback,percentile,postCheckin} from "./checkin-client";
+import {feedback,percentile,postCheckin,postCheckout} from "./checkin-client";
+import {ExitReasonEditor,type ExitSetting} from "./exit-controls";
 import {CheckinResultPanel} from "./checkin-result";
 import type {CheckinResult,UnpaidResolution} from "./service";
 
@@ -12,7 +13,9 @@ type Detector={detect:(source:CanvasImageSource)=>Promise<{rawValue:string}[]>};
 type DetectorCtor=new(options:{formats:string[]})=>Detector;
 function tokenFromText(text:string){try{const url=new URL(text);return url.searchParams.get("token")??text}catch{return text.trim()}}
 
-export function CameraScanner({eventId,demoPaidToken,demoUnpaidToken}:{eventId?:string;demoPaidToken?:string;demoUnpaidToken?:string}){
+export function CameraScanner({eventId,demoPaidToken,demoUnpaidToken,exit}:{eventId?:string;demoPaidToken?:string;demoUnpaidToken?:string;exit?:ExitSetting}){
+  const exitRef=useRef(exit);
+  useEffect(()=>{exitRef.current=exit},[exit]);
   const video=useRef<HTMLVideoElement>(null);
   const controls=useRef<IScannerControls|null>(null);
   const stream=useRef<MediaStream|null>(null);
@@ -40,11 +43,19 @@ export function CameraScanner({eventId,demoPaidToken,demoUnpaidToken}:{eventId?:
     if(!resolution&&seen&&detectedAt-seen<3000)return;
     recent.current.set(token,detectedAt);
     locked.current=true;lastToken.current=token;setBusy(true);
-    const {result:next}=await postCheckin({method:"QR",token,eventId,resolution});
+    const ex=exitRef.current;
+    const {result:next}=ex?await postCheckout({op:"EXIT",method:"QR",token,eventId,reason:ex.reason,note:ex.note}):await postCheckin({method:"QR",token,eventId,resolution});
     setResult(next);setBusy(false);feedback(next.kind);
     setTimings(t=>[...t.slice(-49),performance.now()-detectedAt]);
     if(next.kind==="OK"&&autoRef.current)resetTimer.current=setTimeout(reset,1400);
+    // 退出は理由を直せるよう、自動では閉じない
+    if(next.kind==="EXIT_OK"&&autoRef.current)resetTimer.current=setTimeout(reset,4000);
   },[eventId,reset]);
+
+  async function reenter(ticketId:string){
+    if(resetTimer.current)clearTimeout(resetTimer.current);
+    setBusy(true);const {result:next}=await postCheckout({op:"REENTER",ticketId,eventId});setResult(next);setBusy(false);feedback(next.kind);
+  }
 
   useEffect(()=>{
     let active=true;let raf=0;
@@ -76,14 +87,16 @@ export function CameraScanner({eventId,demoPaidToken,demoUnpaidToken}:{eventId?:
 
   return <section className="scanner-layout">
     <div className="camera-panel">
-      <div className="camera-title"><Camera/><span>QRコードを枠内に合わせてください</span></div>
+      <div className="camera-title"><Camera/><span>{exit?"退出する方のQRコードを枠内に合わせてください":"QRコードを枠内に合わせてください"}</span></div>
       <div className="video-wrap"><video ref={video} muted playsInline/><i/><i/><i/><i/></div>
       {cameraError&&<p className="camera-error">{cameraError}</p>}
       <form onSubmit={e=>{e.preventDefault();void submit(manual)}} className="manual-scan"><Keyboard/><input value={manual} onChange={e=>setManual(e.target.value)} placeholder="QRトークンまたはURLを入力"/><button>確認</button></form>
-      <label className="scan-auto"><input type="checkbox" checked={auto} onChange={e=>setAuto(e.target.checked)}/>受付OKのあと自動で次の読み取りへ</label>
+      <label className="scan-auto"><input type="checkbox" checked={auto} onChange={e=>setAuto(e.target.checked)}/>{exit?"退出を記録したあと自動で次の読み取りへ（4秒後）":"受付OKのあと自動で次の読み取りへ"}</label>
       {timings.length>0&&<p className="scan-metrics">直近{timings.length}件: p50 {Math.round(percentile(timings,50))}ms / p95 {Math.round(percentile(timings,95))}ms / 最大 {Math.round(Math.max(...timings))}ms（検出→結果表示）</p>}
       {demoPaidToken&&<div className="demo-scan-buttons"><button onClick={()=>void submit(demoPaidToken)}>デモ：入金済</button><button onClick={()=>void submit(demoUnpaidToken??"")}>デモ：未入金</button></div>}
     </div>
-    <CheckinResultPanel result={result} busy={busy} onNext={reset} onResolve={r=>void submit(lastToken.current,r)} nextLabel="次の参加者を読み取る"/>
+    <CheckinResultPanel result={result} busy={busy} onNext={reset} onResolve={r=>void submit(lastToken.current,r)} onReenter={result?.ticketId?()=>void reenter(result.ticketId!):undefined} nextLabel="次の参加者を読み取る">
+      {result?.kind==="EXIT_OK"&&<ExitReasonEditor result={result} onUpdated={r=>{if(resetTimer.current)clearTimeout(resetTimer.current);setResult(r)}}/>}
+    </CheckinResultPanel>
   </section>;
 }

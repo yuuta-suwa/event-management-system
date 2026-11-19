@@ -63,7 +63,7 @@ describe.skipIf(!enabled)("イベント報告: 集計・権限・提出スナッ
     const later=(await build.buildSnapshot(eventId,"PARTICIPANT",{reporterId:u.admin.id,reporterName:"報告者",rights:r,scope:"ALL"},new Date(Date.now()+24*3600_000)))!;
     expect(later.participants).toMatchObject({absent:1,pending:0});expect(later.tickets).toBeUndefined();
   });
-  it("T39 権限: 集金担当は担当範囲の集金報告だけ、決裁権者は集金報告、報告担当は参加者報告だけ。非公開帳簿は決裁権者のみ",async()=>{
+  it("T39 権限: 集金担当は担当範囲の集金報告だけ、決裁権者は集金報告、報告担当は参加者報告だけ。非公開帳簿は決裁権者・管理者のみ",async()=>{
     const can=async(k:string)=>{const r=await rightsOf(k);return (["PARTICIPANT","COLLECTION","INTEGRATED"] as const).filter(x=>dom.canViewKind(x,r))};
     expect(await can("admin")).toEqual(["PARTICIPANT","COLLECTION","INTEGRATED"]);expect(await can("mgr")).toEqual(["PARTICIPANT","COLLECTION","INTEGRATED"]);
     expect(await can("col")).toEqual(["COLLECTION"]);expect(await can("ap")).toEqual(["COLLECTION"]);expect(await can("rep")).toEqual(["PARTICIPANT"]);expect(await can("x")).toEqual([]);
@@ -71,9 +71,9 @@ describe.skipIf(!enabled)("イベント報告: 集計・権限・提出スナッ
     const own=(await build.buildSnapshot(eventId,"COLLECTION",{reporterId:u.col.id,reporterName:"col",rights:rc,scope:"OWN"}))!;
     expect(own.tickets).toMatchObject({sold:1,total:5000,confirmed:5000});expect(own.participants).toBeUndefined();
     expect(own.feeAdvances).toHaveLength(1);expect(own.meta.scope).toBe("OWN");
-    // 決裁権者でない SUPER_ADMIN には帳簿要約を含めない。決裁権者本人(管理者を兼ねる場合)には含める
+    // 帳簿要約は、決裁権者・システム管理者・担当イベントの管理者には含め、報告担当・集金担当などには含めない
     const adminInt=(await build.buildSnapshot(event2,"INTEGRATED",{reporterId:u.admin.id,reporterName:"a",rights:await rightsOf("admin",event2),scope:"ALL"}))!;
-    expect(adminInt.ledger).toBeUndefined();
+    expect(adminInt.ledger).toMatchObject({expenses:7000});
     const mgrInt=(await build.buildSnapshot(event2,"INTEGRATED",{reporterId:u.mgr.id,reporterName:"m",rights:await rightsOf("mgr",event2),scope:"ALL"}))!;
     expect(mgrInt.ledger).toMatchObject({expenses:7000});
   });

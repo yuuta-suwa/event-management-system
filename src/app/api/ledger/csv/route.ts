@@ -9,7 +9,7 @@ export async function GET(request:Request){
   const user=await validatedSessionUser();
   if(!user)return NextResponse.json({error:"UNAUTHENTICATED"},{status:401});
   const eventId=new URL(request.url).searchParams.get("event")??"";
-  if(isLocalDemo()||!eventId||!await ledgerAccess(user.id,eventId))return NextResponse.json({error:"FORBIDDEN"},{status:403});
+  if(isLocalDemo()||!eventId||!await ledgerAccess(user,eventId))return NextResponse.json({error:"FORBIDDEN"},{status:403});
   const ledger=await buildLedger(eventId);
   if(!ledger)return NextResponse.json({error:"NOT_FOUND"},{status:404});
   await db.auditLog.create({data:{actorId:user.id,action:"LEDGER_CSV_EXPORTED",entityType:"Event",entityId:eventId}});
