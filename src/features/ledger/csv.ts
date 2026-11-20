@@ -1,5 +1,6 @@
 import {createCsv} from "@/features/exports/csv";
 import type {Ledger} from "./data";
+import {describeChange,EDIT_TYPE_LABEL} from "./edit-domain";
 const jst=(d:Date)=>d.toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"});
 export function ledgerCsv(l:Ledger){
   const summary:[string,number|string][]=[
@@ -12,5 +13,6 @@ export function ledgerCsv(l:Ledger){
   ];
   const head=createCsv(["項目","金額"],summary);
   const body=createCsv(["日時","区分","内容","金額","状態","備考"],l.entries.map(e=>[jst(e.at),e.category,e.description,e.amount,e.status,e.note]));
-  return `${head}\r\n${body.replace(/^﻿/,"")}`;
+  const history=l.revisions.length===0?"":`\r\n${createCsv(["編集日時","編集者","対象","変更内容","理由"],l.revisions.map(r=>[jst(r.at),r.editor,`${EDIT_TYPE_LABEL[r.type]}：${r.summary}`,r.changes.map(c=>describeChange(r.type,c)).join(" / "),r.reason])).replace(/^﻿/,"")}`;
+  return `${head}\r\n${body.replace(/^﻿/,"")}${history}`;
 }

@@ -83,33 +83,34 @@ enum CheckinType {
 }
 
 model User {
-  id                  String                @id @default(cuid())
-  name                String
-  email               String                @unique
-  passwordHash        String?
-  role                UserRole
-  status              UserStatus            @default(ACTIVE)
-  emailVerified       DateTime?
-  image               String?
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  staffProfile        StaffProfile?
-  eventRoles          EventRoleAssignment[] @relation("EventRoleUser")
-  collectedTickets    Ticket[]              @relation("TicketCollector")
-  receipts            CollectionReceipt[]   @relation("ReceiptCollector")
-  remittancesSent     Remittance[]          @relation("RemittanceSender")
-  remittancesReceived Remittance[]          @relation("RemittanceRecipient")
-  custodySettlements  ExpenseSettlement[]   @relation("SettlementCustody")
-  participant         Participant?
-  sessions            Session[]
-  accounts            Account[]
-  managedEvents       Event[]               @relation("EventManager")
-  eventAssignments    EventStaff[]
-  confirmedPayments   Payment[]             @relation("PaymentConfirmer")
-  performedCheckins   Checkin[]             @relation("CheckinStaff")
-  performedCheckouts  Checkout[]            @relation("CheckoutStaff")
-  transfers           TicketTransfer[]      @relation("TransferOperator")
-  auditLogs           AuditLog[]            @relation("AuditActor")
+  id                    String                 @id @default(cuid())
+  name                  String
+  email                 String                 @unique
+  passwordHash          String?
+  role                  UserRole
+  status                UserStatus             @default(ACTIVE)
+  emailVerified         DateTime?
+  image                 String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  staffProfile          StaffProfile?
+  eventRoles            EventRoleAssignment[]  @relation("EventRoleUser")
+  collectedTickets      Ticket[]               @relation("TicketCollector")
+  receipts              CollectionReceipt[]    @relation("ReceiptCollector")
+  remittancesSent       Remittance[]           @relation("RemittanceSender")
+  remittancesReceived   Remittance[]           @relation("RemittanceRecipient")
+  custodySettlements    ExpenseSettlement[]    @relation("SettlementCustody")
+  participant           Participant?
+  sessions              Session[]
+  accounts              Account[]
+  managedEvents         Event[]                @relation("EventManager")
+  eventAssignments      EventStaff[]
+  confirmedPayments     Payment[]              @relation("PaymentConfirmer")
+  performedCheckins     Checkin[]              @relation("CheckinStaff")
+  performedCheckouts    Checkout[]             @relation("CheckoutStaff")
+  ledgerEdits           LedgerRevision[]       @relation("LedgerRevisionEditor")
+  transfers             TicketTransfer[]       @relation("TransferOperator")
+  auditLogs             AuditLog[]             @relation("AuditActor")
   adminNotificationPref AdminNotificationPref?
 }
 
@@ -127,36 +128,36 @@ model StaffProfile {
 }
 
 model Participant {
-  id                  String              @id @default(cuid())
-  userId              String?             @unique
-  name                String
-  nameKana            String
-  phone               String
-  email               String
-  gender              String?
-  age                 Int?
-  occupation          String?
-  referrerName        String?
-  snsContact          String?
-  lineUserId          String?             @unique
-  lineConnected       Boolean             @default(false)
-  lineLinkCode        String              @unique
-  lineVerifiedAt      DateTime?
-  lineFriendFlag      Boolean?
-  lineFriendCheckedAt DateTime?
-  notes               String?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  user                User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  registrations       EventRegistration[]
-  tickets             Ticket[]
-  ticketOrders        TicketOrder[]
-  checkins            Checkin[]
-  checkouts           Checkout[]
-  notifications       NotificationLog[]
-  incomingTransfers   TicketTransfer[]    @relation("NewParticipant")
-  outgoingTransfers   TicketTransfer[]    @relation("OldParticipant")
-  lineFriend          LineFriend?
+  id                         String                      @id @default(cuid())
+  userId                     String?                     @unique
+  name                       String
+  nameKana                   String
+  phone                      String
+  email                      String
+  gender                     String?
+  age                        Int?
+  occupation                 String?
+  referrerName               String?
+  snsContact                 String?
+  lineUserId                 String?                     @unique
+  lineConnected              Boolean                     @default(false)
+  lineLinkCode               String                      @unique
+  lineVerifiedAt             DateTime?
+  lineFriendFlag             Boolean?
+  lineFriendCheckedAt        DateTime?
+  notes                      String?
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  user                       User?                       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  registrations              EventRegistration[]
+  tickets                    Ticket[]
+  ticketOrders               TicketOrder[]
+  checkins                   Checkin[]
+  checkouts                  Checkout[]
+  notifications              NotificationLog[]
+  incomingTransfers          TicketTransfer[]            @relation("NewParticipant")
+  outgoingTransfers          TicketTransfer[]            @relation("OldParticipant")
+  lineFriend                 LineFriend?
   adminNotificationRecipient AdminNotificationRecipient?
 
   @@index([email])
@@ -216,6 +217,7 @@ model Event {
   tickets                        Ticket[]
   checkins                       Checkin[]
   checkouts                      Checkout[]
+  ledgerRevisions                LedgerRevision[]
   notificationJobs               NotificationJob[]
   notificationLogs               NotificationLog[]
   expenses                       EventExpense[]
@@ -413,6 +415,25 @@ model Checkout {
 
   @@index([eventId, checkedOutAt])
   @@index([ticketId, checkedOutAt])
+}
+
+/// 帳簿の編集履歴。帳簿に出る記録(経費・参加費立替・経費立替)を直したときに、直した人・理由・変更前後を残す(消えない)。
+/// changes は [{field,label,before,after}] の配列。entityType は EventExpense / FeeAdvance / ExpenseAdvance。
+model LedgerRevision {
+  id         String   @id @default(cuid())
+  eventId    String
+  entityType String
+  entityId   String
+  summary    String
+  reason     String
+  changes    Json
+  editedBy   String
+  createdAt  DateTime @default(now())
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  editor     User     @relation("LedgerRevisionEditor", fields: [editedBy], references: [id])
+
+  @@index([eventId, createdAt])
+  @@index([entityType, entityId, createdAt])
 }
 
 model TicketTransfer {

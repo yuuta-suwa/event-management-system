@@ -2,8 +2,11 @@ import {db} from "@/server/db";
 import {summarizeSales} from "@/features/sales/domain";
 import {collectorCustody} from "@/features/collection/custody";
 import {storePaymentStatus} from "@/features/collection/remittance-domain";
+import {listRevisions,type RevisionRow} from "./edit-data";
+import type {EditType} from "./edit-domain";
 
-export type LedgerEntry={at:Date;category:string;description:string;amount:number;sign:1|-1|0;note:string|null;status:string};
+/** ref があれば帳簿から編集できる記録。edits はその記録の編集回数(履歴は revisions)。 */
+export type LedgerEntry={at:Date;category:string;description:string;amount:number;sign:1|-1|0;note:string|null;status:string;ref?:{type:EditType;id:string};edits?:number};
 export type Ledger={
   event:{id:string;name:string;eventDate:Date;venueName:string;price:number};
   generatedAt:Date;
@@ -16,13 +19,14 @@ export type Ledger={
   expenses:{total:number;count:number};
   balance:number;
   entries:LedgerEntry[];
+  revisions:RevisionRow[];
 };
 const live={status:{notIn:["CANCELLED","EXPIRED"] as ("CANCELLED"|"EXPIRED")[]},paymentStatus:{notIn:["CANCELLED","REFUNDED"] as ("CANCELLED"|"REFUNDED")[]}};
 /** 決裁権者専用の収支帳簿。呼び出し側で必ず assertLedgerAccess を通すこと。売上・入金・預り金・利益は別の項目として集計する。 */
 export async function buildLedger(eventId:string):Promise<Ledger|null>{
   const event=await db.event.findUnique({where:{id:eventId},select:{id:true,name:true,eventDate:true,venueName:true,price:true}});
   if(!event)return null;
-  const [tickets,refunds,expenses,receipts,remittances,plans,feeAdvances,expAdvances,collectorRows]=await Promise.all([
+  const [tickets,refunds,expenses,receipts,remittances,plans,feeAdvances,expAdvances,collectorRows,revisions]=await Promise.all([
     db.ticket.findMany({where:{eventId,...live},select:{paymentStatus:true,payments:{orderBy:{createdAt:"desc"},take:1,select:{amount:true}}}}),
     db.payment.aggregate({where:{ticket:{eventId},status:"REFUNDED"},_sum:{amount:true}}),
     db.eventExpense.findMany({where:{eventId,voidedAt:null},orderBy:{createdAt:"asc"}}),
@@ -32,7 +36,10 @@ export async function buildLedger(eventId:string):Promise<Ledger|null>{
     db.feeAdvance.findMany({where:{eventId},include:{recoveries:true},orderBy:{advancedAt:"asc"}}),
     db.expenseAdvance.findMany({where:{eventId},include:{settlements:true},orderBy:{paidAt:"asc"}}),
     db.collectionReceipt.groupBy({by:["collectorId"],where:{eventId,status:{not:"VOIDED"}}}),
+    listRevisions(db,eventId),
   ]);
+  const editCount=new Map<string,number>();for(const r of revisions)editCount.set(`${r.type}:${r.entityId}`,(editCount.get(`${r.type}:${r.entityId}`)??0)+1);
+  const edited=(type:EditType,id:string)=>({ref:{type,id},edits:editCount.get(`${type}:${id}`)??0});
   const sales=summarizeSales(tickets.map(t=>({paymentStatus:t.paymentStatus,amount:t.payments[0]?.amount??event.price})));
   const billed=event.price*tickets.length;
   const custodies=await Promise.all(collectorRows.map(r=>collectorCustody(db,eventId,r.collectorId)));
@@ -49,10 +56,10 @@ export async function buildLedger(eventId:string):Promise<Ledger|null>{
   const entries:LedgerEntry[]=[];
   for(const r of receipts)entries.push({at:r.receivedAt,category:"集金",description:`${r.payerName??"—"} → ${r.collector.name}`,amount:r.amount,sign:r.status==="VOIDED"?0:1,note:r.status==="VOIDED"?`取消: ${r.voidReason??""}`:r.note,status:r.status});
   for(const r of remittances)entries.push({at:r.sentAt??r.plannedAt??r.createdAt,category:"内部送金",description:`${r.sender.name} → ${r.recipient.name}`,amount:r.amount,sign:0,note:r.discrepancyNote??r.cancelReason??r.evidenceNote,status:r.status});
-  for(const e of expenses)entries.push({at:e.createdAt,category:"経費",description:e.label,amount:e.amount,sign:-1,note:e.note,status:"RECORDED"});
+  for(const e of expenses)entries.push({at:e.createdAt,category:"経費",description:e.label,amount:e.amount,sign:-1,note:e.note,status:"RECORDED",...edited("EventExpense",e.id)});
   for(const x of plans)for(const r of x.records)entries.push({at:r.paidAt,category:"店舗支払",description:x.payee,amount:r.amount,sign:0,note:r.status==="VOIDED"?`取消: ${r.voidReason??""}`:[r.evidenceNote,r.receiptNote].filter(Boolean).join(" / ")||null,status:r.status});
-  for(const f of feeAdvances)entries.push({at:f.advancedAt,category:f.status==="PLANNED"?"参加費立替（予定）":"参加費立替",description:`${f.advancerName}が${f.obligorName}分を${f.status==="PLANNED"?"立替予定":"立替"}`,amount:f.amount,sign:0,note:f.evidenceNote,status:f.status});
-  for(const e of expAdvances)entries.push({at:e.paidAt,category:e.status==="PLANNED"?"経費立替（予定）":"経費立替",description:`${e.advancerName}（${e.category}・${e.payee}）`,amount:e.amount,sign:0,note:e.evidenceNote,status:e.status});
+  for(const f of feeAdvances)entries.push({at:f.advancedAt,category:f.status==="PLANNED"?"参加費立替（予定）":"参加費立替",description:`${f.advancerName}が${f.obligorName}分を${f.status==="PLANNED"?"立替予定":"立替"}`,amount:f.amount,sign:0,note:f.evidenceNote,status:f.status,...(f.status==="CANCELLED"?{}:edited("FeeAdvance",f.id))});
+  for(const e of expAdvances)entries.push({at:e.paidAt,category:e.status==="PLANNED"?"経費立替（予定）":"経費立替",description:`${e.advancerName}（${e.category}・${e.payee}）`,amount:e.amount,sign:0,note:e.evidenceNote,status:e.status,...(e.status==="CANCELLED"?{}:edited("ExpenseAdvance",e.id))});
   entries.sort((a,b)=>a.at.getTime()-b.at.getTime());
   return {event,generatedAt:new Date(),
     tickets:{count:tickets.length,billed,sales:sales.revenue,receivable:Math.max(0,billed-sales.revenue),refunded:refunds._sum.amount??0,paidCount:sales.paidCount},
@@ -61,5 +68,5 @@ export async function buildLedger(eventId:string):Promise<Ledger|null>{
     expenseAdvances:{total:expTotal,settled:expSettled,unsettled:expTotal-expSettled,planned:expPlanned.reduce((n,e)=>n+e.amount,0),plannedCount:expPlanned.length},
     storePayments:{planned:storePlanned,paid:storePaid,unpaid:storePlanned-storePaid},
     expenses:{total:expenseTotal,count:expenses.length},
-    balance:sales.revenue-expenseTotal,entries};
+    balance:sales.revenue-expenseTotal,entries,revisions};
 }

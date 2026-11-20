@@ -1,6 +1,7 @@
 // 年次・月次の帳簿(チケット販売記録＋参加人数＋参加者履歴)の集計。純粋関数。
 export type BookTicket={status:string;paymentStatus:string;amount:number;attended:boolean};
-export type EventBook={id:string;name:string;date:Date;month:number;price:number;capacity:number;tickets:{sold:number;paid:number;sales:number;billed:number;receivable:number};attended:number};
+/** canEdit: この人がそのイベントの参加者を入力・編集できるか(システム管理者、またはそのイベントの管理者)。 */
+export type EventBook={canEdit?:boolean;id:string;name:string;date:Date;month:number;price:number;capacity:number;tickets:{sold:number;paid:number;sales:number;billed:number;receivable:number};attended:number};
 const DEAD_STATUS=new Set(["CANCELLED","EXPIRED"]);
 const DEAD_PAYMENT=new Set(["CANCELLED","REFUNDED"]);
 /** 販売記録: 取消・期限切れ・返金/キャンセル済みを除いた「有効なチケット」を数える。参加人数は受付済みの人数。 */
@@ -27,4 +28,4 @@ export function summarizeBook(events:EventBook[]){
   const totals=months.reduce((a,m)=>({events:a.events+m.events,sold:a.sold+m.sold,paid:a.paid+m.paid,sales:a.sales+m.sales,attended:a.attended+m.attended}),{events:0,sold:0,paid:0,sales:0,attended:0});
   return {months,totals};
 }
-export type Attendee={eventId:string;name:string;nameKana:string;ticketNumber:string;paymentStatus:string;checkedInAt:Date|null;exitedAt:Date|null;exitReason:string|null};
+export type Attendee={registrationId:string|null;eventId:string;name:string;nameKana:string;ticketNumber:string;paymentStatus:string;checkedInAt:Date|null;exitedAt:Date|null;exitReason:string|null};

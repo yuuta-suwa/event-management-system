@@ -5,10 +5,12 @@ import {requireUser} from "@/server/authz";
 import {db} from "@/server/db";
 import {buildLedger} from "@/features/ledger/data";
 import {ledgerEventScope} from "@/features/ledger/access";
+import {describeChange,EDIT_TYPE_LABEL} from "@/features/ledger/edit-domain";
 const STAFF=["SUPER_ADMIN","EVENT_MANAGER","RECEPTION_STAFF"] as const;
 const yen=(n:number)=>`¥${n.toLocaleString("ja-JP")}`;
 const jst=(d:Date)=>d.toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
-export default async function LedgerPage({searchParams}:{searchParams:Promise<{event?:string}>}){
+const jstFull=(d:Date)=>d.toLocaleString("ja-JP",{timeZone:"Asia/Tokyo",year:"numeric",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
+export default async function LedgerPage({searchParams}:{searchParams:Promise<{event?:string;notice?:string}>}){
   const user=await requireUser(STAFF);
   const q=await searchParams;
   // 閲覧できるのは、管理者(全イベント)・担当イベントの管理者・決裁権者に指定されたイベント。
@@ -18,6 +20,7 @@ export default async function LedgerPage({searchParams}:{searchParams:Promise<{e
   return <><AppHeader active="ledger"/><main className="content-shell">
     <div className="page-heading"><div><p className="eyebrow">PRIVATE LEDGER</p><h1>非公開帳簿</h1><p>イベント別の収支帳簿です。システム管理者・担当イベントの管理者・決裁権者が作成・閲覧・提出できます（受付スタッフ・集金担当は不可）。</p></div>
       {mine.length>0&&<form className="year-picker"><select name="event" defaultValue={eventId} aria-label="イベント">{mine.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select><button>表示</button></form>}</div>
+    {q.notice==="edited"&&<div className="success-banner">帳簿の記録を直しました。理由と変更前後は、下の「編集履歴」に残っています。</div>}
     {!ledger&&<p className="collection-links"><Link href={`/ledger/books?year=${new Date().getFullYear()}`}>年次・月次の帳簿 →</Link></p>}{!ledger?<div className="empty-state"><Lock/><h2>閲覧できる帳簿がありません</h2><p>帳簿は、システム管理者・担当イベントの管理者・イベントの決裁権者が閲覧できます。</p>{user.role==="SUPER_ADMIN"&&<p><Link href="/approvers">決裁権者を設定する →</Link></p>}</div>:<>
       <p className="collection-links"><a href={`/api/ledger/csv?event=${ledger.event.id}`}><Download size={14}/> CSV出力</a><Link href={`/ledger/books?year=${new Date().getFullYear()}`}>年次・月次の帳簿 →</Link><Link href={`/reports?event=${ledger.event.id}`}>この帳簿を報告書として提出する →</Link><span className="print-hint"><Printer size={14}/> ブラウザの印刷でPDF保存できます</span></p>
       <section className="payment-summary">
@@ -35,8 +38,13 @@ export default async function LedgerPage({searchParams}:{searchParams:Promise<{e
           <dt>店舗支払</dt><dd>予定 {yen(ledger.storePayments.planned)}／支払済 {yen(ledger.storePayments.paid)}／未払金 <strong>{yen(ledger.storePayments.unpaid)}</strong></dd>
         </dl></section>
       <section className="collection-section"><h2>取引履歴</h2>
-        <table className="data-table"><thead><tr><th>日時</th><th>区分</th><th>内容</th><th>金額</th><th>状態</th><th>備考・証憑</th></tr></thead><tbody>
-          {ledger.entries.slice(-300).reverse().map((e,i)=><tr key={i}><td>{jst(e.at)}</td><td>{e.category}</td><td>{e.description}</td><td>{e.sign<0?"−":""}{yen(e.amount)}</td><td>{e.status}</td><td>{e.note??""}</td></tr>)}
-        </tbody></table></section></>}
+        <table className="data-table"><thead><tr><th>日時</th><th>区分</th><th>内容</th><th>金額</th><th>状態</th><th>備考・証憑</th><th>編集</th></tr></thead><tbody>
+          {ledger.entries.slice(-300).reverse().map((e,i)=><tr key={i}><td>{jst(e.at)}</td><td>{e.category}</td><td>{e.description}</td><td>{e.sign<0?"−":""}{yen(e.amount)}</td><td>{e.status}</td><td>{e.note??""}</td>
+            <td>{e.ref?<><Link className="ledger-edit-link" href={`/ledger/edit?type=${e.ref.type}&id=${e.ref.id}`}>編集</Link>{(e.edits??0)>0&&<span className="ledger-edited">編集済み{e.edits}回</span>}</>:<span className="muted-cell" title="この記録は元の画面（集金・送金・店舗支払・チケット）から取消・訂正します">—</span>}</td></tr>)}
+        </tbody></table></section>
+      <section className="collection-section"><h2>編集履歴（直した人・理由・変更前後）</h2>
+        {ledger.revisions.length===0?<p className="ledger-note">まだ編集された記録はありません。取引履歴の「編集」から、理由をつけて直せます。</p>:<table className="data-table revision-list"><thead><tr><th>日時</th><th>編集者</th><th>対象</th><th>変更内容</th><th>理由</th></tr></thead><tbody>
+          {ledger.revisions.map(r=><tr key={r.id}><td>{jstFull(r.at)}</td><td>{r.editor}</td><td>{EDIT_TYPE_LABEL[r.type]}：{r.summary}</td><td>{r.changes.map((c,i)=><div key={i}>{describeChange(r.type,c)}</div>)}</td><td className="revision-reason">{r.reason}</td></tr>)}
+        </tbody></table>}</section></>}
   </main></>;
 }
