@@ -1,0 +1,23 @@
+# 通知・メールの定期実行(10分おき)。Vercel Cron(Hobbyは1日1回まで)の代わりに使える無料の方法。
+# 有効にする手順は docs/SCHEDULER.md を参照。Secrets が未設定の間は何もしない(失敗通知も出さない)。
+# 注意: GitHub の定期実行(schedule)は「リポジトリの既定ブランチ」にあるワークフローだけが動く。
+name: notification-cron
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions: {}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call notification job endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          JOB_SECRET: ${{ secrets.NOTIFICATION_JOB_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$JOB_SECRET" ]; then echo "APP_URL / NOTIFICATION_JOB_SECRET が未設定のためスキップします"; exit 0; fi
+          code=$(curl -sS -o /tmp/out.json -w "%{http_code}" -X POST -H "Authorization: Bearer $JOB_SECRET" --max-time 60 "$APP_URL/api/jobs/notifications")
+          echo "HTTP $code"; cat /tmp/out.json | head -c 500; echo
+          [ "$code" = "200" ]

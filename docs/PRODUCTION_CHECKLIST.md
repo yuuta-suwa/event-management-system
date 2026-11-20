@@ -43,3 +43,19 @@
 2. `/login`、`/dashboard`、公開申込URL、通知ジョブAPIをスモークテストする。
 3. 重大障害時は直前のアプリ版へ戻す。DB復元が必要なら新DBへ復元して接続先を切り替える。
 4. 公開後24時間はログイン失敗、通知失敗、受付エラー、DB接続数を監視する。
+
+## 6.0 リリース（2026-11-06 追加）
+
+詳細な手順は [RELEASE_6_0.md](RELEASE_6_0.md)。公開前に次をすべて確認する。
+
+- [ ] 本番DBのバックアップ（Neonのブランチ／復元ポイント）を作成した
+- [ ] `prisma migrate deploy` で `20261105100000` と `20261106100000` を適用し、`migrate status` が最新
+- [ ] Vercel の Production Branch が `main` であることを確認した（GitHubの既定ブランチは `production-release` のまま）
+- [ ] 通知の定期実行を設定した（[SCHEDULER.md](SCHEDULER.md)）／`/api/jobs/notifications` が未認証で 401
+- [ ] `RESEND_API_KEY` `EMAIL_FROM` を設定し、ドメインが認証済み。自分宛てのテスト送信で本文・QR画像・受付コードを確認した（[EMAIL_SETUP.md](EMAIL_SETUP.md)）
+- [ ] LINEログインチャネルを作成し、`LINE_LOGIN_CHANNEL_ID/SECRET` を設定した。実機で「LINEで登録・連携する」→友だち追加→通知可能を確認した（[LINE_HANDOVER.md](LINE_HANDOVER.md)）
+- [ ] 各イベントの決裁権者を指定した。決裁権者以外（SUPER_ADMIN含む）から `/ledger`・収支が見えないことを確認した
+- [ ] 受付: QR・受付コード・参加者検索の3方式で受付できる。iPhone Safari・Android Chrome で連続受付を実測した（[CHECKIN_PERFORMANCE.md](CHECKIN_PERFORMANCE.md)）
+- [ ] 報告: 下書き→提出→別ユーザーで承認ができ、印刷ページからPDF保存できる
+- [ ] イベント日時の表示が日本時間になっている
+- [ ] 秘密情報の再発行（Neon の DB パスワード、Google OAuth クライアントシークレット。過去にチャットへ貼られた）
